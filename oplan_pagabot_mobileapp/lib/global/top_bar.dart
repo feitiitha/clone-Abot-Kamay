@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import '../settings.dart';
 import '../articles.dart';
-
+import '../chatbot.dart'; // Siguraduhing tama ang path patungo sa chatbot.dart mo
 
 class GlobalAppBar extends StatelessWidget implements PreferredSizeWidget {
-  // 1. DAGDAGAN MO ITONG LINE NA ITO:
   final VoidCallback? onAboutTap;
 
-  // 2. DAGDAGAN MO NG "this.onAboutTap" ANG CONSTRUCTOR:
   const GlobalAppBar({super.key, this.onAboutTap});
 
   @override
@@ -42,7 +40,15 @@ class GlobalAppBar extends StatelessWidget implements PreferredSizeWidget {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   GestureDetector(
-                    onTap: () => print("Chatbot pressed"),
+                    onTap: () {
+                      // DINUGTONG: Dito mangyayari ang paglipat ng page
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ChatbotPage(),
+                        ),
+                      );
+                    },
                     child: Image.asset(
                       'assets/chatbot.png',
                       height: 30,
@@ -62,7 +68,6 @@ class GlobalAppBar extends StatelessWidget implements PreferredSizeWidget {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(15),
                     ),
-
                     onSelected: (value) {
                       if (value == 'settings') {
                         Navigator.push(
@@ -72,7 +77,6 @@ class GlobalAppBar extends StatelessWidget implements PreferredSizeWidget {
                           ),
                         );
                       } else if (value == 'about') {
-                        // 3. SIGURADUHIN NA TATAWAGIN ITO DITO:
                         onAboutTap?.call();
                       } else if (value == 'articles') {
                         Navigator.push(
@@ -83,7 +87,6 @@ class GlobalAppBar extends StatelessWidget implements PreferredSizeWidget {
                         );
                       }
                     },
-
                     itemBuilder: (context) => [
                       const PopupMenuItem(value: 'about', child: Text('About')),
                       const PopupMenuItem(

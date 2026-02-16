@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:async';
-import 'package:flutter/services.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -13,6 +11,9 @@ class SignupPage extends StatefulWidget {
 }
 
 class _SignupPageState extends State<SignupPage> {
+
+  final supabase = Supabase.instance.client;
+
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _fNameCtrl = TextEditingController();
   final TextEditingController _mNameCtrl = TextEditingController();
@@ -22,22 +23,21 @@ class _SignupPageState extends State<SignupPage> {
   final TextEditingController _idNumCtrl = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
-  final TextEditingController _dobCtrl = TextEditingController(); 
-  final List<TextEditingController> _otpControllers = List.generate(6, (i) => TextEditingController());
-final List<FocusNode> _otpFocusNodes = List.generate(6, (i) => FocusNode());
-  
-  // MPIN Controllers for Validation
-  final List<TextEditingController> _mpinControllers = List.generate(4, (i) => TextEditingController());
-  final List<TextEditingController> _confirmMpinControllers = List.generate(4, (i) => TextEditingController());
-  
-  DateTime? _selectedDate;
+  final TextEditingController _dobCtrl = TextEditingController();
 
+  final List<TextEditingController> _mpinControllers =
+      List.generate(4, (i) => TextEditingController());
+  final List<TextEditingController> _confirmMpinControllers =
+      List.generate(4, (i) => TextEditingController());
+
+  DateTime? _selectedDate;
   int _currentStep = 1;
   bool _noMiddleName = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _agreedToTerms = false;
-  File? _selectedIDFile; 
+  bool _isLoading = false;
+  File? _selectedIDFile;
   final ImagePicker _picker = ImagePicker();
   String _selectedSuffix = "N/A";
   String _selectedSex = "Select";
@@ -47,174 +47,104 @@ final List<FocusNode> _otpFocusNodes = List.generate(6, (i) => FocusNode());
   final Color strokeColor = Colors.grey.shade300;
 
   bool get _hasMaxLength => _passwordController.text.length >= 8;
-  bool get _hasUppercase => _passwordController.text.contains(RegExp(r'[A-Z]'));
-  bool get _hasLowercase => _passwordController.text.contains(RegExp(r'[a-z]'));
-  bool get _hasNumber => _passwordController.text.contains(RegExp(r'[0-9]'));
-  bool get _hasSpecialChar => _passwordController.text.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
-  bool get _passwordsMatch => _passwordController.text == _confirmPasswordController.text && _passwordController.text.isNotEmpty;
-  bool _isLoading = false;
-  XFile? _webSelfieFile;
-  int _secondsRemaining = 120;
-  Timer? _timer;
+  bool get _hasUppercase =>
+      _passwordController.text.contains(RegExp(r'[A-Z]'));
+  bool get _hasLowercase =>
+      _passwordController.text.contains(RegExp(r'[a-z]'));
+  bool get _hasNumber =>
+      _passwordController.text.contains(RegExp(r'[0-9]'));
+  bool get _hasSpecialChar => _passwordController.text
+      .contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
+  bool get _passwordsMatch =>
+      _passwordController.text == _confirmPasswordController.text &&
+      _passwordController.text.isNotEmpty;
 
-  
-void _startTimer() {
-  setState(() {
-    _secondsRemaining = 120; // I-reset sa 2 mins
-  });
-  _timer?.cancel(); // Patayin ang lumang timer para hindi mag-overlap
-  _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-    if (_secondsRemaining > 0) {
-      setState(() {
-        _secondsRemaining--;
+  // ===========================
+  // SUPABASE REGISTER FUNCTION
+  // ===========================
+  Future<void> _registerUser() async {
+    setState(() => _isLoading = true);
+
+    try {
+      // 1️⃣ Create user in Supabase Auth
+      final AuthResponse res = await supabase.auth.signUp(
+        email: _emailCtrl.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+
+      final user = res.user;
+
+      if (user == null) {
+        throw Exception("Signup failed.");
+      }
+
+      // 2️⃣ Combine MPIN
+      String finalMpin =
+          _mpinControllers.map((e) => e.text).join();
+
+      // 3️⃣ Insert into Supabase table
+      await supabase.from('users').insert({
+        'id': user.id,
+        'firstname': _fNameCtrl.text.trim(),
+        'middlename':
+            _noMiddleName ? "" : _mNameCtrl.text.trim(),
+        'lastname': _lNameCtrl.text.trim(),
+        'suffix': _selectedSuffix,
+        'sex': _selectedSex,
+        'birthday': _dobCtrl.text,
+        'email': _emailCtrl.text.trim(),
+        'address': _addressCtrl.text.trim(),
+        'idnumber': _idNumCtrl.text.trim(),
+        'nationality': _selectedNationality,
+        'idtype': _selectedIDType,
+        'mpin': finalMpin,
+        'isverified': false,
+        'createdat': DateTime.now().toIso8601String(),
       });
-    } else {
-      _timer?.cancel();
+
+      setState(() {
+        _currentStep = 7;
+        _isLoading = false;
+      });
+
+    } on AuthException catch (e) {
+      setState(() => _isLoading = false);
+
+      String errorMsg = e.message;
+
+      if (errorMsg.contains("Password")) {
+        errorMsg = "The password is too weak.";
+      }
+
+      if (errorMsg.contains("already")) {
+        errorMsg = "The email is already registered.";
+      }
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(errorMsg)));
+
+    } catch (e) {
+      setState(() => _isLoading = false);
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("Error: $e")));
     }
-  });
-}
+  }
 
+  // ===========================
+  // REST OF YOUR CODE
+  // ===========================
 
+  // --- FIREBASE LOGIC END ---
 
   Future<void> _pickIDImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
       setState(() {
         _selectedIDFile = File(image.path);
-        
       });
     }
   }
-
-  Future<void> _takeSelfie() async {
-  try {
-    // Ito ang magti-trigger ng browser popup para sa Camera Permission
-    final XFile? image = await _picker.pickImage(
-      source: ImageSource.camera,
-      preferredCameraDevice: CameraDevice.front,
-    );
-
-    if (image != null) {
-      setState(() {
-        _webSelfieFile = image; // I-save ang XFile
-      });
-    }
-  } catch (e) {
-    print("Camera Error: $e");
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Camera permission denied or not found.")),
-    );
-  }
-}
-
-void _showErrorSnackBar(String message) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(message),
-      backgroundColor: Colors.red,
-      behavior: SnackBarBehavior.floating, 
-    ),
-  );
-}
-
-Future<void> _registerUser() async {
-  // 1. VALIDATION CHECKS (Haharang kung blanko)
-  if (_emailCtrl.text.trim().isEmpty || 
-      _passwordController.text.trim().isEmpty ||
-      _fNameCtrl.text.trim().isEmpty || 
-      _lNameCtrl.text.trim().isEmpty ||
-      _addressCtrl.text.trim().isEmpty ||
-      _idNumCtrl.text.trim().isEmpty) {
-    _showErrorSnackBar("Please fill in all required information.");
-    return; // Dito hihinto ang code, hindi mag-o-OTP
-  }
-
-  final String mpin = _mpinControllers.map((e) => e.text).join();
-  if (mpin.length < 4) {
-    _showErrorSnackBar("MPIN must be 4 digits.");
-    return;
-  }
-
-  if (!_agreedToTerms) {
-    _showErrorSnackBar("You must agree to the Terms and Conditions.");
-    return;
-  }
-
-  setState(() => _isLoading = true);
-  
-  try {
-    // 2. SUPABASE SIGNUP
-    final AuthResponse res = await Supabase.instance.client.auth.signUp(
-      email: _emailCtrl.text.trim(),
-      password: _passwordController.text.trim(),
-      data: {
-        'first_name': _fNameCtrl.text.trim(),
-        'middle_name': _noMiddleName ? "N/A" : _mNameCtrl.text.trim(),
-        'last_name': _lNameCtrl.text.trim(),
-        'suffix': _selectedSuffix,
-        'sex': _selectedSex,
-        'nationality': _selectedNationality,
-        'birthday': _dobCtrl.text.trim(),
-        'address': _addressCtrl.text.trim(),
-        'id_type': _selectedIDType,
-        'id_number': _idNumCtrl.text.trim(),
-        'mpin': mpin,
-        'agreed_to_terms': _agreedToTerms,
-        'registration_date': DateTime.now().toIso8601String(),
-      },
-    );
-
-    // 3. SUCCESS TRANSITION
-    if (res.user != null) {
-      _startTimer(); // Dito lang aandar ang countdown
-      setState(() => _currentStep = 5); // Dito lang lilipat ang screen
-    }
-  } catch (e) {
-    _showErrorSnackBar("Error: ${e.toString()}");
-  } finally {
-    if (mounted) setState(() => _isLoading = false);
-  }
-}
-
- Future<void> _verifyOTP() async {
-  // Pagsamahin ang input mula sa 6 na controllers
-  String otpCode = _otpControllers.map((e) => e.text).join();
-
-  // Guard clause: Siguraduhing 6 digits bago mag-proceed
-  if (otpCode.length < 6) return;
-
-  setState(() => _isLoading = true);
-  try {
-    // Tawagin ang Supabase para i-verify ang token
-    final AuthResponse res = await Supabase.instance.client.auth.verifyOTP(
-      email: _emailCtrl.text.trim(),
-      token: otpCode,
-      type: OtpType.signup, // Mahalaga ito para sa registration flow
-    );
-
-    if (res.session != null) {
-      // TAMA ANG CODE: Stop ang timer at lipat sa Success Screen
-      _timer?.cancel(); 
-      setState(() => _currentStep = 6); // Lipat sa tagumpay!
-    }
-  } catch (e) {
-    // MALI ANG CODE: Huwag mag-continue. Magpakita ng error.
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("Invalid Code: check your email."),
-        backgroundColor: Colors.red,
-      ),
-    );
-    
-
-    // Opsyonal: Linisin ang boxes para makapag-type ulit
-    for (var controller in _otpControllers) { controller.clear(); }
-    _otpFocusNodes[0].requestFocus(); 
-    
-  } finally {
-    if (mounted) setState(() => _isLoading = false);
-  }
-}
 
   void _showTermsDialog() {
     final ScrollController scrollController = ScrollController();
@@ -328,7 +258,6 @@ Future<void> _registerUser() async {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _dobCtrl.dispose();
-    _timer?.cancel();
     for (var controller in _mpinControllers) {
       controller.dispose();
     }
@@ -339,11 +268,9 @@ Future<void> _registerUser() async {
   }
 
   @override
-@override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      // Inalis ang back button kapag step 7 (Success Screen) na
       appBar: _currentStep == 7 ? null : AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -351,7 +278,7 @@ Future<void> _registerUser() async {
           padding: const EdgeInsets.only(left: 20.0),
           child: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 20),
-            onPressed: _isLoading ? null : () { // Disabled habang naglo-load
+            onPressed: () {
               if (_currentStep > 1) {
                 setState(() => _currentStep--);
               } else {
@@ -362,152 +289,118 @@ Future<void> _registerUser() async {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.symmetric(
-            horizontal: 50.0, 
-            vertical: _currentStep == 7 ? 0 : 10.0 
-          ),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Header (DSWD Logo at Title) - Step 1 to 4 lang
-                if (_currentStep <= 4) ...[
-                  Center(
-                    child: Image.asset(
-                      'assets/DSWD.png',
-                      height: 150,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Create Account',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                  ),
-                  const Text(
-                    'Sign Up to get started.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey, fontSize: 14),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-
-                // Extra space para sa PIN screens
-                if (_currentStep == 5 || _currentStep == 6) const SizedBox(height: 80),
-
-                // Step Indicator - Step 1 to 6 lang
-                if (_currentStep <= 6) ...[
-                  _buildStepIndicator(),
-                  const SizedBox(height: 30),
-                ],
-
-                // Dito lalabas yung mga TextFields base sa current step
-                _buildCurrentStepContent(),
-
-                // Main Button (Next / Continue)
-                if (_currentStep < 7) ...[
-                  const SizedBox(height: 40),
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : () { // I-disable kung nagse-save na
-                      if (_formKey.currentState!.validate()) {
-                        
-                        // Validation para sa Step 1 (Gender)
-                        if (_currentStep == 1 && _selectedSex == "Select") {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please select gender")));
-                          return;
-                        }
-
-                        // Validation para sa Step 2 (ID Upload)
-                        if (_currentStep == 2 && _selectedIDFile == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please upload your Government ID")));
-                          return;
-                        }
-
-                        if (_currentStep == 3 && _webSelfieFile == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please take a selfie first")),);
-                          return;
-}
-
-                        // Validation para sa Step 4 (Password & Terms)
-                        if (_currentStep == 4) {
-                          if (!_passwordsMatch) {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Passwords do not match")));
-                            return;
-                          }
-                          if (!_agreedToTerms) {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please agree to the terms")));
-                            return;
-                          }
-                        }
-
-                        if (_currentStep == 5) {
-                        // Pinagsasama ang 6 na digits ng OTP
-                            String otpCode = _otpControllers.map((e) => e.text).join();
-
-                        if (otpCode.length < 6) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("Please enter the complete 6-digit verification code"))
-                          );
-                          return; // Hindi magpapatuloy sa Step 6
-                        }
-        // Dito mo tatawagin ang verification function mo
-        // Kapag verified na, tsaka lang mag setState(() => _currentStep = 6);
-        _verifyOTP(); 
-        return; 
-      }
-                        
-                        // Validation para sa Step 6 (MPIN) at Supabase Submission
-                        if (_currentStep == 6) {
-                          String mpin = _mpinControllers.map((e) => e.text).join();
-                          String confirmMpin = _confirmMpinControllers.map((e) => e.text).join();
-                          
-                          if (mpin.length < 4 || confirmMpin.length < 4) {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please complete the MPIN fields")));
-                            return;
-                          }
-                          if (mpin != confirmMpin) {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("MPINs do not match")));
-                            return;
-                          }
-
-                          // TAWAG SA SUPABASE: Imbis na _currentStep++, ito ang gagamitin
-                          _registerUser(); 
-                          return; 
-                        }
-
-                        // Paglipat sa susunod na step (para sa step 1-5)
-                        setState(() => _currentStep++);
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryBlue,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              padding: EdgeInsets.symmetric(
+                horizontal: 50.0, 
+                vertical: _currentStep == 7 ? 0 : 10.0
+              ),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_currentStep <= 4) ...[
+                      Center(
+                        child: Image.asset(
+                          'assets/DSWD.png',
+                          height: 150,
+                        ),
                       ),
-                    ),
-                    child: _isLoading 
-                      ? const SizedBox(
-                          height: 20, 
-                          width: 20, 
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                        )
-                      : Text(
-                          _currentStep >= 5 ? "Continue" : "Next",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Create Account',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                      ),
+                      const Text(
+                        'Sign Up to get started.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey, fontSize: 14),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+
+                    if (_currentStep == 5 || _currentStep == 6) const SizedBox(height: 80),
+
+                    if (_currentStep <= 6) ...[
+                      _buildStepIndicator(),
+                      const SizedBox(height: 30),
+                    ],
+
+                    _buildCurrentStepContent(),
+
+                    if (_currentStep < 7) ...[
+                       const SizedBox(height: 40),
+                       ElevatedButton(
+                        onPressed: _isLoading ? null : () {
+                          if (_formKey.currentState!.validate()) {
+                            if (_currentStep == 1 && _selectedSex == "Select") {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please select gender")));
+                              return;
+                            }
+                            if (_currentStep == 2 && _selectedIDFile == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please upload your Government ID")));
+                              return;
+                            }
+                            if (_currentStep == 4) {
+                              if (!_passwordsMatch) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Passwords do not match")));
+                                return;
+                              }
+                              if (!_agreedToTerms) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please agree to the terms")));
+                                return;
+                              }
+                            }
+                            
+                            if (_currentStep == 6) {
+                              String mpin = _mpinControllers.map((e) => e.text).join();
+                              String confirmMpin = _confirmMpinControllers.map((e) => e.text).join();
+                              
+                              if (mpin.length < 4 || confirmMpin.length < 4) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please complete the MPIN fields")));
+                                return;
+                              }
+                              if (mpin != confirmMpin) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("MPINs do not match")));
+                                return;
+                              }
+                              
+                              // TRIGGER FIREBASE SAVE
+                              _registerUser();
+                              return;
+                            }
+
+                            setState(() => _currentStep++);
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryBlue,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(24),
                           ),
                         ),
-                  ),
-                  const SizedBox(height: 30),
-                ],
-              ],
+                        child: _isLoading 
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : Text(
+                              _currentStep >= 5 ? "Continue" : "Next",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                      ),
+                      const SizedBox(height: 30),
+                    ],
+                  ],
+                ),
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -593,66 +486,44 @@ Future<void> _registerUser() async {
           ],
         ),
         const SizedBox(height: 16),
-   _buildLabel("Birthday"),
-GestureDetector(
-  onTap: () async {
-    DateTime? pickedDate = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate ?? DateTime(2000), 
-      firstDate: DateTime(1900),  
-      lastDate: DateTime.now(), // Hahayaan silang makita hanggang 2026
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: primaryBlue,
-              onPrimary: Colors.white,
-              onSurface: Colors.black,
+        _buildLabel("Birthday"),
+        GestureDetector(
+          onTap: () async {
+            DateTime? pickedDate = await showDatePicker(
+              context: context,
+              initialDate: DateTime(2000), 
+              firstDate: DateTime(1900),  
+              lastDate: DateTime.now(),    
+              builder: (context, child) {
+                return Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: ColorScheme.light(
+                      primary: primaryBlue, 
+                      onPrimary: Colors.white, 
+                      onSurface: Colors.black, 
+                    ),
+                  ),
+                  child: child!,
+                );
+              },
+            );
+
+            if (pickedDate != null) {
+              setState(() {
+                _selectedDate = pickedDate;
+                _dobCtrl.text = "${pickedDate.month}/${pickedDate.day}/${pickedDate.year}";
+              });
+            }
+          },
+          child: AbsorbPointer(
+            child: _buildTextField(
+              _dobCtrl,
+              "Select your birthdate",
+              Icons.calendar_month_outlined,
+              validator: (v) => v!.isEmpty ? "Required" : null,
             ),
           ),
-          child: child!,
-        );
-      },
-    );
-
-    if (pickedDate != null) {
-      setState(() {
-        _selectedDate = pickedDate;
-        // Format: MM/DD/YYYY
-        _dobCtrl.text = "${pickedDate.month}/${pickedDate.day}/${pickedDate.year}";
-      });
-      
-      // I-trigger ang validation agad para makita nila kung "Must be 18" sila
-      _formKey.currentState!.validate();
-    }
-  },
-  child: AbsorbPointer(
-    child: _buildTextField(
-      _dobCtrl,
-      "Select your birthdate",
-      Icons.calendar_month_outlined,
-      validator: (value) {
-        if (value == null || value.isEmpty) return "Required";
-
-        // Logic para i-compute ang edad
-        final birthDate = _selectedDate!;
-        final today = DateTime.now();
-        int age = today.year - birthDate.year;
-
-        // I-adjust ang age kung hindi pa sumasapit ang birthday ngayong taon
-        if (today.month < birthDate.month || 
-           (today.month == birthDate.month && today.day < birthDate.day)) {
-          age--;
-        }
-
-        if (age < 18) {
-          return "Must be at least 18 years old";
-        }
-        return null;
-      },
-    ),
-  ),
-),
+        ),
       ],
     );
   }
@@ -663,8 +534,8 @@ GestureDetector(
       children: [
         _buildLabel("Email Address"),
         _buildTextField(_emailCtrl, "Enter email", Icons.email_outlined,
-            validator: (v) => !v!.contains("@gmail.com")
-                ? "Email must be @gmail.com"
+            validator: (v) => !v!.contains("@")
+                ? "Please enter a valid email"
                 : null),
         const SizedBox(height: 16),
         _buildLabel("Home Address"),
@@ -687,62 +558,14 @@ GestureDetector(
     );
   }
 
- Widget _buildStep3() {
-  return Column(
-    children: [
-      const SizedBox(height: 20),
-      Container(
-        height: 280,
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid), 
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
-            )
-          ],
-        ),
-        child: _webSelfieFile == null
-            ? const Center(
-                child: Text(
-                  "Take a Selfie",
-                  style: TextStyle(color: Colors.grey, fontSize: 16),
-                ),
-              )
-            : ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  _webSelfieFile!.path, // Sa web, ang path ay blob URL
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                ),
-              ),
-      ),
-      const SizedBox(height: 30),
-      Center(
-        child: GestureDetector(
-          onTap: _takeSelfie, // Pag-click dito, lalabas ang browser permission popup
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.grey.shade400, width: 1.5),
-            ),
-            child: Icon(
-              Icons.camera_alt_outlined,
-              size: 35,
-              color: Colors.grey.shade700,
-            ),
-          ),
-        ),
-      ),
-    ],
-  );
-}
+  Widget _buildStep3() {
+    return Column(
+      children: [
+        const SizedBox(height: 20),
+        _buildPlainUploadBox("Take a Selfie", height: 280),
+      ],
+    );
+  }
 
   Widget _buildStep4() {
     return Column(
@@ -788,80 +611,19 @@ GestureDetector(
     );
   }
 
-Widget _buildStep5() {
-  return Column(
-    children: [
-      const Text("OTP Verification", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-      Text("We've sent you the verification code on ${_emailCtrl.text}", 
-          textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey, fontSize: 13)),
-      const SizedBox(height: 40),
-      Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly, 
-        children: List.generate(6, (i) => _buildOTPField(i))
-      ),
-      const SizedBox(height: 30),
-      
-      // DITO MO ILALAGAY YUNG DYNAMIC TIMER CODE:
-      Text(
-        _secondsRemaining > 0 
-          ? "Re-send code in ${_secondsRemaining ~/ 60}:${(_secondsRemaining % 60).toString().padLeft(2, '0')}"
-          : "You can now resend the code",
-        style: const TextStyle(color: Colors.grey),
-      ),
+  Widget _buildStep5() {
+    return Column(
+      children: [
+        const Text("OTP Verification", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const Text("Verification code sent to your email.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 13)),
+        const SizedBox(height: 40),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: List.generate(6, (i) => _buildPinField())),
+        const SizedBox(height: 30),
+        const Text("Re-send code in 2:00", style: TextStyle(color: Colors.grey)),
+      ],
+    );
+  }
 
-      // Optional: Resend Button na lilitaw lang kapag 0 na ang timer
-      if (_secondsRemaining == 0)
-        TextButton(
-          onPressed: () {
-            _registerUser(); // Tatawagin ulit ang signup para mag-send ng bagong OTP
-            _startTimer();   // I-re-reset ang countdown sa 2 mins
-          },
-          child: const Text("Resend Code", style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
-        ),
-    ],
-  );
-}
-
-Widget _buildOTPField(int index) {
-  return SizedBox(
-    width: 45,
-    child: TextField(
-      controller: _otpControllers[index],
-      focusNode: _otpFocusNodes[index],
-      textAlign: TextAlign.center,
-      keyboardType: TextInputType.number,
-      maxLength: 1,
-      // Para sa Web: Iwasan ang "Select File" issue sa pamamagitan ng pag-limit sa digits
-      inputFormatters: [FilteringTextInputFormatter.digitsOnly], 
-      decoration: InputDecoration(
-        counterText: "",
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8), 
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8), 
-          borderSide: BorderSide(color: primaryBlue, width: 2),
-        ),
-      ),
-      onChanged: (value) {
-        // 1. Move focus forward
-        if (value.isNotEmpty && index < 5) {
-          _otpFocusNodes[index + 1].requestFocus();
-        } 
-        // 2. Move focus backward (backspace logic)
-        else if (value.isEmpty && index > 0) {
-          _otpFocusNodes[index - 1].requestFocus();
-        }
-        
-        // 3. AUTO-ALIGN: Pag puno na, i-verify sa Supabase
-        if (_otpControllers.every((e) => e.text.length == 1)) {
-          _verifyOTP();
-        }
-      },
-    ),
-  );
-}
   Widget _buildStep6() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -878,12 +640,11 @@ Widget _buildOTPField(int index) {
     );
   }
 
-  // MODIFIED: I-center ang icons at i-fix ang layout gap
   Widget _buildStep7() {
     return SizedBox(
-      height: MediaQuery.of(context).size.height * 0.8, // Kumukuha ng sapat na height para sa centering
+      height: MediaQuery.of(context).size.height * 0.8, 
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center, // I-center ang lahat sa loob ng Column
+        mainAxisAlignment: MainAxisAlignment.center, 
         children: [
           Center(
             child: Image.asset(
@@ -914,7 +675,7 @@ Widget _buildOTPField(int index) {
               ),
             ),
           ),
-          const SizedBox(height: 50), // FIXED GAP: Saktong layo lang ang button sa text
+          const SizedBox(height: 50),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(

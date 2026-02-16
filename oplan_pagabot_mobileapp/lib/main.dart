@@ -16,10 +16,7 @@ void main() async {
   );
 
   runApp(
-    const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: LoginPage(),
-    ),
+    const MaterialApp(debugShowCheckedModeBanner: false, home: LoginPage()),
   );
 }
 
@@ -53,13 +50,33 @@ class _LoginPageState extends State<LoginPage> {
       });
 
       try {
-        // Authentication via Supabase
+        // 1. Authentication via Supabase (auth.users)
+        // This checks the secure password set during Signup
         final response = await Supabase.instance.client.auth.signInWithPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
 
-        if (response.user != null) {
+        final user = response.user;
+
+        if (user != null) {
+          // 2. Data Alignment Check (public.users)
+          // We verify that the corresponding profile exists in your 'users' table
+          // This ensures the login is "connected" to the signup data.
+          final userProfile = await Supabase.instance.client
+              .from('users')
+              .select()
+              .eq('id', user.id)
+              .maybeSingle();
+
+          if (userProfile == null) {
+            // Case: User is in Auth but not in public.users
+            throw const AuthException(
+              "Login failed: Profile not found in database. Please sign up again.",
+            );
+          }
+
+          // If successful and aligned, navigate
           if (mounted) {
             Navigator.pushReplacement(
               context,
@@ -69,19 +86,25 @@ class _LoginPageState extends State<LoginPage> {
         }
       } on AuthException catch (error) {
         // Error handling para sa maling credentials o server issues
+        String message = error.message;
+        if (message.contains("Invalid login credentials") &&
+            message.contains("Email not confirmed")) {
+          // Help the user understand they might need to verify email
+          message = "Please verify your email address before logging in.";
+        } else if (message.contains("Invalid login credentials")) {
+          message = "Invalid email or password. Please check your inputs.";
+        }
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(error.message),
-              backgroundColor: Colors.redAccent,
-            ),
+            SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
           );
         }
       } catch (error) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('An unexpected error occurred. Please try again.'),
+            SnackBar(
+              content: Text('Error: $error'),
               backgroundColor: Colors.redAccent,
             ),
           );
