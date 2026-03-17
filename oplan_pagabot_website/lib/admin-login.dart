@@ -1,15 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-void main() {
-  runApp(
-    const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: AdminLoginPage(),
-    ),
-  );
-}
+import 'homepage-admin_dashboard.dart';
 
 class AdminLoginPage extends StatefulWidget {
   const AdminLoginPage({super.key});
@@ -19,25 +11,47 @@ class AdminLoginPage extends StatefulWidget {
 }
 
 class _AdminLoginPageState extends State<AdminLoginPage> {
-  // Password Validation States
+  // ── Form State ───────────────────────────────────────────────────────────────
   String _password = '';
   bool _obscureText = true;
   bool _rememberMe = false;
 
-  bool get _hasMinLength => _password.length >= 8;
-  bool get _hasUppercase => _password.contains(RegExp(r'[A-Z]'));
-  bool get _hasNumberOrSpecial =>
+  // ── Password Validation ──────────────────────────────────────────────────────
+  // FIX 3: Collapsed into one combined flag — all 3 rules must pass together.
+  bool get _allRulesMet =>
+      _password.length >= 8 &&
+      _password.contains(RegExp(r'[A-Z]')) &&
       _password.contains(RegExp(r'[0-9!@#$%^&*(),.?":{}|<>]'));
 
-  // Carousel Controller
+  // ── Carousel State ───────────────────────────────────────────────────────────
   final PageController _pageController = PageController();
   int _currentPage = 0;
   Timer? _carouselTimer;
 
-  final List<String> _carouselText = [
-    'The aim of OPLAN PAG-ABOT is to reach out and provide comprehensive support and services to street dwellers to help them reintegrate into society and improve their quality of life.',
-    'Enhancing public safety by connecting vulnerable individuals in street situations with proper care and responsive local facilities.',
-    'A unified platform committed to reducing street situations and building a more compassionate region for everyone.',
+  // FIX 2: Slowed down — 7 s interval, 800 ms animation (was 4 s / 600 ms)
+  static const _kCarouselInterval = Duration(seconds: 7);
+  static const _kCarouselAnimation = Duration(milliseconds: 800);
+
+  final List<Map<String, String>> _slides = [
+    {
+      'text':
+          'The aim of OPLAN PAG-ABOT is to reach out and provide comprehensive '
+          'support and services to street dwellers to help them reintegrate into '
+          'society and improve their quality of life.',
+      'image': 'assets/images/IMG-main-oplan_landing page.png',
+    },
+    {
+      'text':
+          'Enhancing public safety by connecting vulnerable individuals in street '
+          'situations with proper care and responsive local facilities.',
+      'image': 'assets/images/IMG-main-oplan_landing page.png',
+    },
+    {
+      'text':
+          'A unified platform committed to reducing street situations and building '
+          'a more compassionate region for everyone.',
+      'image': 'assets/images/IMG-main-oplan_landing page.png',
+    },
   ];
 
   @override
@@ -47,16 +61,28 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
   }
 
   void _startCarousel() {
-    _carouselTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+    _carouselTimer?.cancel();
+    _carouselTimer = Timer.periodic(_kCarouselInterval, (_) {
       if (_pageController.hasClients) {
-        int nextPage = (_currentPage + 1) % _carouselText.length;
+        final next = (_currentPage + 1) % _slides.length;
         _pageController.animateToPage(
-          nextPage,
-          duration: const Duration(milliseconds: 600),
-          curve: Curves.easeInOut,
+          next,
+          duration: _kCarouselAnimation,
+          curve: Curves.easeInOutCubic,
         );
       }
     });
+  }
+
+  // FIX 2b: Clicking a dot jumps immediately AND resets the auto-timer
+  void _jumpToPage(int index) {
+    _carouselTimer?.cancel();
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+    );
+    _startCarousel(); // restart timer from this point
   }
 
   @override
@@ -69,12 +95,13 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final bool isDesktop = size.width > 900;
+    final isDesktop = size.width > 900;
 
     return Scaffold(
       body: Container(
         width: double.infinity,
         height: double.infinity,
+        // Outer page background
         decoration: const BoxDecoration(
           image: DecorationImage(
             image: AssetImage('assets/bg/bg_final-admin-login.png'),
@@ -85,21 +112,21 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
           child: SingleChildScrollView(
             child: Container(
               width: isDesktop ? 1000 : 450,
-              height: isDesktop ? 600 : null,
+              height: isDesktop ? 620 : null,
               margin: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 32,
-                    offset: const Offset(0, 16),
+                    color: Colors.black.withOpacity(0.12),
+                    blurRadius: 40,
+                    offset: const Offset(0, 20),
                   ),
                 ],
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(24),
                 child: isDesktop
                     ? Row(
                         children: [
@@ -121,12 +148,12 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
     );
   }
 
-  // ── Left Side Carousel ───────────────────────────────────────────────────────
+  // ── Left Side: Carousel ──────────────────────────────────────────────────────
   Widget _buildLeftCarousel({bool isMobile = false}) {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.all(40),
-      height: isMobile ? 500 : double.infinity,
+      padding: const EdgeInsets.fromLTRB(36, 36, 36, 28),
+      height: isMobile ? 520 : double.infinity,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -134,50 +161,64 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
           Image.asset(
             'assets/images/main-logo.png',
             height: 38,
-            errorBuilder: (_, __, ___) => const Text(
-              'DSWD Logo',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            errorBuilder: (_, __, ___) => Text(
+              'DSWD',
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w900,
+                fontSize: 20,
+                color: const Color(0xFF283891),
+              ),
             ),
           ),
-          const SizedBox(height: 32),
-          // Carousel Image & Text
+          const SizedBox(height: 28),
+
+          // Slide content
           Expanded(
             child: PageView.builder(
               controller: _pageController,
-              onPageChanged: (index) {
-                setState(() => _currentPage = index);
-              },
-              itemCount: _carouselText.length,
-              itemBuilder: (context, index) {
+              onPageChanged: (i) => setState(() => _currentPage = i),
+              itemCount: _slides.length,
+              itemBuilder: (_, i) {
+                final slide = _slides[i];
                 return Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Image
                     Expanded(
-                      flex: 4,
+                      flex: 5,
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(14),
                         child: Image.asset(
-                          'assets/images/IMG-main-oplan_landing page.png',
+                          slide['image']!,
                           width: double.infinity,
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => Container(
-                            color: Colors.grey[200],
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEEF0FF),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
                             alignment: Alignment.center,
-                            child: const Text('Image Preview'),
+                            child: Icon(
+                              Icons.image_rounded,
+                              size: 56,
+                              color: Colors.grey[400],
+                            ),
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
+
+                    // Slide text
                     Expanded(
                       flex: 2,
                       child: Text(
-                        _carouselText[index],
+                        slide['text']!,
                         textAlign: TextAlign.left,
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 14,
+                          fontSize: 13.5,
                           color: const Color(0xFF6B7280),
-                          height: 1.6,
+                          height: 1.65,
                         ),
                       ),
                     ),
@@ -186,56 +227,64 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
               },
             ),
           ),
-          // Dots Indicator
+
+          const SizedBox(height: 16),
+
+          // FIX 2: Clickable dot indicators
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(
-              _carouselText.length,
-              (index) => AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _currentPage == index
-                      ? const Color(0xFF283891) // DSWD Blue
-                      : Colors.grey[300],
-                  border: Border.all(
-                    color: _currentPage == index
+            children: List.generate(_slides.length, (i) {
+              final isActive = _currentPage == i;
+              return GestureDetector(
+                onTap: () => _jumpToPage(i), // tap to jump
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  margin: const EdgeInsets.symmetric(horizontal: 5),
+                  width: isActive ? 28 : 10, // active dot stretches into pill
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: isActive
                         ? const Color(0xFF283891)
-                        : Colors.grey[400]!,
+                        : Colors.grey[300],
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: isActive
+                          ? const Color(0xFF283891)
+                          : Colors.grey[400]!,
+                      width: 1,
+                    ),
                   ),
                 ),
-              ),
-            ),
+              );
+            }),
           ),
         ],
       ),
     );
   }
 
-  // ── Right Side Form ──────────────────────────────────────────────────────────
+  // ── Right Side: Login Form ───────────────────────────────────────────────────
   Widget _buildRightForm() {
     return Container(
+      // FIX 1: bg-admin-login-gradient.png applied here as DecorationImage
       decoration: const BoxDecoration(
         image: DecorationImage(
           image: AssetImage('assets/bg/bg-admin-login-gradient.png'),
           fit: BoxFit.cover,
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 56, vertical: 48),
+      padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 40),
       child: Center(
         child: Container(
-          padding: const EdgeInsets.all(40),
+          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 44),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 20,
-                offset: const Offset(0, 5),
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 24,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
@@ -243,86 +292,70 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header title
+              // ── Header ──
               Center(
                 child: Column(
                   children: [
                     Text(
                       'Log in',
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 20,
+                        fontSize: 22,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFF283891),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     Container(
-                      width: 120, // Wider line in reference
-                      height: 1.5,
-                      color: const Color(0xFF283891),
+                      width: 120,
+                      height: 2,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF283891),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 36),
 
-              // Username input
-              Text(
-                'Username',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-              ),
+              // ── Username ──
+              _FieldLabel(label: 'Username'),
               const SizedBox(height: 8),
               _buildTextField(
                 hint: 'Enter Username',
                 iconPath: 'assets/icon/mail.png',
+                fallbackIcon: Icons.mail_outline_rounded,
               ),
               const SizedBox(height: 20),
 
-              // Password input
-              Text(
-                'Password',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-              ),
+              // ── Password ──
+              _FieldLabel(label: 'Password'),
               const SizedBox(height: 8),
               _buildTextField(
                 hint: 'Enter Password',
                 iconPath: 'assets/icon/lock.png',
+                fallbackIcon: Icons.lock_outline_rounded,
                 isPassword: true,
-                onChanged: (val) {
-                  setState(() {
-                    _password = val;
-                  });
-                },
+                onChanged: (val) => setState(() => _password = val),
               ),
 
-              // Password Validation Feedbacks
-              if (_password.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                _ValidationRow(
-                  label: 'Required 8 characters minimum',
-                  isValid: _hasMinLength,
-                ),
-                _ValidationRow(
-                  label: 'Required 1 capital letter minimum',
-                  isValid: _hasUppercase,
-                ),
-                _ValidationRow(
-                  label: 'Required 1 special character or number (@/134...)',
-                  isValid: _hasNumberOrSpecial,
-                ),
-              ],
+              // FIX 3: Single consolidated password hint row (Fixed height to prevent container movement)
+              SizedBox(
+                height: 70,
+                child: _password.isNotEmpty
+                    ? Align(
+                        alignment: Alignment.topCenter,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 10),
+                          child: _PasswordHintRow(allMet: _allRulesMet),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 10),
 
-              // Remember & Forgot
+              // ── Remember me / Forgot password ──
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -333,50 +366,70 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                         height: 20,
                         child: Checkbox(
                           value: _rememberMe,
-                          onChanged: (val) {
-                            setState(() => _rememberMe = val ?? false);
-                          },
+                          onChanged: (v) =>
+                              setState(() => _rememberMe = v ?? false),
                           activeColor: const Color(0xFF283891),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(4),
+                          ),
+                          side: BorderSide(
+                            color: Colors.grey[400]!,
+                            width: 1.5,
                           ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         'Remember Password',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 12),
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          color: Colors.black87,
+                        ),
                       ),
                     ],
                   ),
                   InkWell(
                     onTap: () {},
-                    child: Text(
-                      'Forgot password?',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 12,
-                        color: const Color(0xFF283891),
-                        fontWeight: FontWeight.w600,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 2,
+                        vertical: 2,
+                      ),
+                      child: Text(
+                        'Forgot password?',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          color: const Color(0xFF283891),
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 28),
 
-              // Login Button
+              // ── Login Button ──
               SizedBox(
                 width: double.infinity,
-                height: 48,
+                height: 50,
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AdminDashboardHomepage(),
+                      ),
+                    );
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF283891),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
                     elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   child: Text(
                     'Login',
@@ -397,6 +450,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
   Widget _buildTextField({
     required String hint,
     required String iconPath,
+    required IconData fallbackIcon,
     bool isPassword = false,
     ValueChanged<String>? onChanged,
   }) {
@@ -409,7 +463,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
       child: TextField(
         obscureText: isPassword && _obscureText,
         onChanged: onChanged,
-        style: GoogleFonts.plusJakartaSans(fontSize: 14),
+        style: GoogleFonts.plusJakartaSans(fontSize: 14, color: Colors.black87),
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: GoogleFonts.plusJakartaSans(
@@ -417,12 +471,14 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
             fontSize: 13,
           ),
           prefixIcon: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(13),
             child: Image.asset(
               iconPath,
               width: 18,
               height: 18,
               color: Colors.grey[500],
+              errorBuilder: (_, __, ___) =>
+                  Icon(fallbackIcon, size: 18, color: Colors.grey[500]),
             ),
           ),
           suffixIcon: isPassword
@@ -434,43 +490,78 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                     color: Colors.grey[500],
                     size: 20,
                   ),
-                  onPressed: () {
-                    setState(() => _obscureText = !_obscureText);
-                  },
+                  onPressed: () => setState(() => _obscureText = !_obscureText),
                 )
               : null,
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+          contentPadding: const EdgeInsets.symmetric(vertical: 15),
         ),
       ),
     );
   }
 }
 
-class _ValidationRow extends StatelessWidget {
+// ── Field Label ────────────────────────────────────────────────────────────────
+class _FieldLabel extends StatelessWidget {
   final String label;
-  final bool isValid;
-  const _ValidationRow({required this.label, required this.isValid});
+  const _FieldLabel({required this.label});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+    return Text(
+      label,
+      style: GoogleFonts.plusJakartaSans(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: Colors.black87,
+      ),
+    );
+  }
+}
+
+// ── FIX 3: Single password hint widget ────────────────────────────────────────
+// Shows ONE compact row that says "Password requirements not met" or "✓ Looks good!"
+// instead of listing 3 separate validation rows while typing.
+class _PasswordHintRow extends StatelessWidget {
+  final bool allMet;
+  const _PasswordHintRow({required this.allMet});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: allMet
+            ? const Color(0xFFEAFBF0) // soft green bg
+            : const Color(0xFFFFF3F3), // soft red bg
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: allMet
+              ? const Color(0xFF34C777).withOpacity(0.4)
+              : const Color(0xFFE84545).withOpacity(0.35),
+          width: 1,
+        ),
+      ),
       child: Row(
         children: [
           Icon(
-            isValid ? Icons.check_circle_rounded : Icons.cancel_rounded,
-            color: isValid ? Colors.green : Colors.red,
-            size: 14,
+            allMet ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+            size: 15,
+            color: allMet ? const Color(0xFF1A7A48) : const Color(0xFFBF4040),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
-              label,
+              allMet
+                  ? 'Password looks good!'
+                  : 'Must be 8+ characters, include a capital letter & a number or special character.',
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 11.5,
-                color: isValid ? Colors.green[700] : Colors.red[700],
                 fontWeight: FontWeight.w500,
+                color: allMet
+                    ? const Color(0xFF1A7A48)
+                    : const Color(0xFFBF4040),
               ),
             ),
           ),
