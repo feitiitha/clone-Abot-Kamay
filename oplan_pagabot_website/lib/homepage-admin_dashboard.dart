@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart' hide Path;
 import 'admin-report_management.dart';
 import 'admin-user_management.dart';
 import 'admin-content_management.dart';
@@ -71,10 +73,7 @@ class _AdminDashboardHomepageState extends State<AdminDashboardHomepage> {
               // Custom theme colors from image colors if any
               bgDeco = const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    Color(0xFFF8FAFC),
-                    Color(0xFFF1F5F9),
-                  ],
+                  colors: [Color(0xFFF8FAFC), Color(0xFFF1F5F9)],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
@@ -728,7 +727,28 @@ class _AnimatedStatCardState extends State<_AnimatedStatCard>
 // ══════════════════════════════════════════════════════════════════════════════
 // DENSITY MAP CARD
 // ══════════════════════════════════════════════════════════════════════════════
-class _DensityMapCard extends StatelessWidget {
+class _DensityMapCard extends StatefulWidget {
+  @override
+  State<_DensityMapCard> createState() => _DensityMapCardState();
+}
+
+class _DensityMapCardState extends State<_DensityMapCard> {
+  final MapController _mapCtrl = MapController();
+
+  void _zoomIn() {
+    final z = _mapCtrl.camera.zoom;
+    _mapCtrl.move(_mapCtrl.camera.center, z + 1);
+  }
+
+  void _zoomOut() {
+    final z = _mapCtrl.camera.zoom;
+    _mapCtrl.move(_mapCtrl.camera.center, z - 1);
+  }
+
+  void _resetZoom() {
+    _mapCtrl.move(const LatLng(14.5995, 120.9842), 13.0);
+  }
+
   @override
   Widget build(BuildContext context) {
     return _CardWrapper(
@@ -778,19 +798,23 @@ class _DensityMapCard extends StatelessWidget {
               child: Stack(
                 children: [
                   Positioned.fill(
-                    child: Image.asset(
-                      'assets/images/density-map.png',
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        color: const Color(0xFFE8EDFF),
-                        child: Center(
-                          child: Icon(
-                            Icons.map_outlined,
-                            size: 60,
-                            color: DC.primary.withOpacity(0.25),
-                          ),
-                        ),
+                    child: FlutterMap(
+                      mapController: _mapCtrl,
+                      options: const MapOptions(
+                        initialCenter: LatLng(
+                          14.5995,
+                          120.9842,
+                        ), // Manila, Philippines roughly
+                        initialZoom: 13.0,
                       ),
+                      children: [
+                        TileLayer(
+                          urlTemplate:
+                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName:
+                              'com.example.oplan_pagabot_website',
+                        ),
+                      ],
                     ),
                   ),
                   // Zoom controls
@@ -799,7 +823,7 @@ class _DensityMapCard extends StatelessWidget {
                     left: 14,
                     child: Column(
                       children: [
-                        _MapBtn(Icons.my_location_rounded),
+                        _MapBtn(Icons.my_location_rounded, onTap: _resetZoom),
                         const SizedBox(height: 8),
                         Container(
                           decoration: BoxDecoration(
@@ -814,13 +838,13 @@ class _DensityMapCard extends StatelessWidget {
                           ),
                           child: Column(
                             children: [
-                              _MapBtnInline(Icons.add),
+                              _MapBtnInline(Icons.add, onTap: _zoomIn),
                               Container(
                                 height: 1,
                                 width: 32,
                                 color: Colors.grey[200],
                               ),
-                              _MapBtnInline(Icons.remove),
+                              _MapBtnInline(Icons.remove, onTap: _zoomOut),
                             ],
                           ),
                         ),
@@ -830,7 +854,7 @@ class _DensityMapCard extends StatelessWidget {
                   Positioned(
                     bottom: 14,
                     right: 14,
-                    child: _MapBtn(Icons.fullscreen_rounded),
+                    child: _MapBtn(Icons.fullscreen_rounded, onTap: () {}),
                   ),
                 ],
               ),
@@ -1428,7 +1452,8 @@ class _IconCircleButtonState extends State<_IconCircleButton> {
 // ── Map buttons ────────────────────────────────────────────────────────────────
 class _MapBtn extends StatefulWidget {
   final IconData icon;
-  const _MapBtn(this.icon);
+  final VoidCallback? onTap;
+  const _MapBtn(this.icon, {this.onTap});
   @override
   State<_MapBtn> createState() => _MapBtnState();
 }
@@ -1441,7 +1466,7 @@ class _MapBtnState extends State<_MapBtn> {
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
-        onTap: () {},
+        onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 120),
           width: 34,
@@ -1466,7 +1491,8 @@ class _MapBtnState extends State<_MapBtn> {
 
 class _MapBtnInline extends StatefulWidget {
   final IconData icon;
-  const _MapBtnInline(this.icon);
+  final VoidCallback? onTap;
+  const _MapBtnInline(this.icon, {this.onTap});
   @override
   State<_MapBtnInline> createState() => _MapBtnInlineState();
 }
@@ -1479,7 +1505,7 @@ class _MapBtnInlineState extends State<_MapBtnInline> {
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
-        onTap: () {},
+        onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 120),
           width: 34,
