@@ -2,6 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'admin-report_management.dart';
+import 'admin-user_management.dart';
+import 'admin-content_management.dart';
+import 'admin-logs_monitoring.dart';
 
 void main() {
   runApp(
@@ -55,6 +58,12 @@ class _AdminDashboardHomepageState extends State<AdminDashboardHomepage> {
               ),
               child: _selectedNavIndex == 1
                   ? const ReportManagementBody()
+                  : _selectedNavIndex == 2
+                  ? const UserManagementBody()
+                  : _selectedNavIndex == 3
+                  ? const ContentManagementBody()
+                  : _selectedNavIndex == 4
+                  ? const LogsMonitoringBody()
                   : const _DashboardBody(),
             ),
           ),

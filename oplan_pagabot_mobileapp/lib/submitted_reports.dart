@@ -285,7 +285,7 @@ class SubmittedReportsPage extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 14,
-                    vertical: 6,flutte
+                    vertical: 6,
                   ),
                   decoration: BoxDecoration(
                     color: statusColor,

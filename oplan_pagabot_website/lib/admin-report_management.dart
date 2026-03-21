@@ -990,19 +990,7 @@ class _UpdateReportDialogState extends State<_UpdateReportDialog> {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// DIALOG 3: VERIFY IDENTITY  ← FIXED to match reference image exactly
-//
-// Reference observations:
-//   • Dialog is medium-wide, vertically compact — sits in upper-centre of screen
-//   • Title "Verify Identity to Update Record" is CENTRED, bold
-//   • × icon is top-right corner (plain icon, no box)
-//   • Subtitle paragraph is CENTRED, 2 lines
-//   • "Password" label is LEFT-ALIGNED
-//   • Input field: white bg, light grey border, lock icon left, eye icon right
-//   • Large gap between subtitle and Password section
-//   • Cancel = grey outline, rounded pill
-//   • Confirm = solid deep green, rounded pill
-//   • Buttons are EQUAL WIDTH side-by-side
+// DIALOG 3: VERIFY IDENTITY — exact match to uploaded reference image
 // ══════════════════════════════════════════════════════════════════════════════
 class _VerifyIdentityDialog extends StatefulWidget {
   final VoidCallback onConfirm;
@@ -1035,43 +1023,44 @@ class _VerifyIdentityDialogState extends State<_VerifyIdentityDialog> {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       backgroundColor: Colors.white,
-      elevation: 24,
-      // ── Width: medium (leaves ~28% on each side of the content area)
-      // ── Height: compact — no vertical scroll needed
-      insetPadding: const EdgeInsets.symmetric(horizontal: 350, vertical: 250),
+      elevation: 12,
+      // FIX: vertical reduced from 260 → 100 so dialog has room to render
+      // horizontal 370 keeps it compact (~460px on a 1200px screen)
+      insetPadding: const EdgeInsets.symmetric(horizontal: 370, vertical: 100),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(36, 32, 36, 36),
+        // Tightened inner padding so content fits without overflow
+        padding: const EdgeInsets.fromLTRB(28, 22, 28, 24),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: MainAxisSize.min, // shrink-wraps — no fixed height
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Row 1: Centred title + × close icon ──────────────────────────
-            // Use Stack so title is truly centred even with the × button present
+            // ── Title + × ────────────────────────────────────────────────────
             SizedBox(
               width: double.infinity,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  // Title — centred
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 28),
                     child: Text(
                       'Verify Identity to Update Record',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 17,
+                        fontSize: 15,
                         fontWeight: FontWeight.w700,
                         color: DC.primaryDark,
+                        height: 1.3,
                       ),
                     ),
                   ),
-                  // × icon — right edge
                   Positioned(
                     right: 0,
+                    top: 0,
                     child: GestureDetector(
                       onTap: () => Navigator.pop(context),
                       child: const Icon(
-                        Icons.close_rounded,
-                        size: 22,
+                        Icons.close,
+                        size: 20,
                         color: DC.textSoft,
                       ),
                     ),
@@ -1079,156 +1068,167 @@ class _VerifyIdentityDialogState extends State<_VerifyIdentityDialog> {
                 ],
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 12),
 
-            // ── Row 2: Subtitle — centred ─────────────────────────────────────
-            Text(
-              'You are about to update this record. Please\nenter your password to authorize this action.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 13.5,
-                color: DC.textMid,
-                height: 1.6,
-              ),
-            ),
-            const SizedBox(height: 28),
-
-            // ── Row 3: "Password" label — left-aligned ────────────────────────
-            Align(
-              alignment: Alignment.centerLeft,
+            // ── Subtitle ─────────────────────────────────────────────────────
+            Center(
               child: Text(
-                'Password',
+                'You are about to update this record. Please\n'
+                'enter your password to authorize this action.',
+                textAlign: TextAlign.center,
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
-                  color: DC.primaryDark,
+                  fontSize: 13,
+                  color: DC.textMid,
+                  height: 1.55,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 18),
 
-            // ── Row 4: Password input ─────────────────────────────────────────
-            // White background, rounded corners, light grey border
-            // Lock icon left  |  hint "Enter Password"  |  eye icon right
+            // ── "Password" label ──────────────────────────────────────────────
+            Text(
+              'Password',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: DC.primaryDark,
+              ),
+            ),
+            const SizedBox(height: 6),
+
+            // ── Input field — h=46, compact ───────────────────────────────────
             Container(
+              height: 46,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                   color: _error != null
                       ? const Color(0xFFDC2626)
-                      : const Color(
-                          0xFFDDE2EF,
-                        ), // matches reference's grey border
-                  width: 1.2,
+                      : const Color(0xFFD1D5DB),
+                  width: 1.0,
                 ),
               ),
-              child: TextField(
-                controller: _ctrl,
-                obscureText: _obscure,
-                onChanged: (_) {
-                  if (_error != null) setState(() => _error = null);
-                },
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 14,
-                  color: DC.primaryDark,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Enter Password',
-                  hintStyle: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
-                    color: DC.textSoft,
-                  ),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 0,
-                    vertical: 14,
-                  ),
-                  prefixIcon: const Icon(
-                    Icons.lock_outline_rounded,
-                    size: 18,
-                    color: DC.textSoft,
-                  ),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscure
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined,
-                      size: 18,
+              child: Row(
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(left: 12, right: 8),
+                    child: Icon(
+                      Icons.lock_outline_rounded,
+                      size: 17,
                       color: DC.textSoft,
                     ),
-                    onPressed: () => setState(() => _obscure = !_obscure),
                   ),
-                ),
+                  Expanded(
+                    child: TextField(
+                      controller: _ctrl,
+                      obscureText: _obscure,
+                      onChanged: (_) {
+                        if (_error != null) setState(() => _error = null);
+                      },
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13.5,
+                        color: DC.primaryDark,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Enter Password',
+                        hintStyle: GoogleFonts.plusJakartaSans(
+                          fontSize: 13.5,
+                          color: DC.textSoft,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => setState(() => _obscure = !_obscure),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Icon(
+                        _obscure
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        size: 17,
+                        color: DC.textSoft,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
 
-            // ── Error message (only shown if Confirm tapped with empty field) ──
+            // Error
             if (_error != null) ...[
-              const SizedBox(height: 6),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  _error!,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    color: const Color(0xFFDC2626),
-                    fontWeight: FontWeight.w500,
-                  ),
+              const SizedBox(height: 5),
+              Text(
+                _error!,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 11.5,
+                  color: const Color(0xFFDC2626),
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
 
-            const SizedBox(height: 28),
+            const SizedBox(height: 18),
 
-            // ── Row 5: Cancel + Confirm buttons ──────────────────────────────
-            // Equal-width, side by side
-            // Cancel  → grey outline, pill shape, dark text
-            // Confirm → solid deep green (#2E7D32), pill shape, white text
+            // ── Buttons ───────────────────────────────────────────────────────
+            // Both buttons aligned with equal height and spacing
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: DC.primaryDark,
-                      backgroundColor: Colors.white,
-                      side: const BorderSide(
-                        color: Color(0xFFD1D5DB),
-                        width: 1.2,
+                  child: SizedBox(
+                    height: 46,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: DC.primaryDark,
+                        side: const BorderSide(
+                          color: Color(0xFFD1D5DB),
+                          width: 1.2,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: EdgeInsets.zero,
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(50),
-                      ),
-                    ),
-                    child: Text(
-                      'Cancel',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
+                      child: Text(
+                        'Cancel',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                          color: DC.primaryDark,
+                        ),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: ElevatedButton(
-                    onPressed: _submit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2E7D32),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(50),
+                  child: SizedBox(
+                    height: 46,
+                    child: ElevatedButton(
+                      onPressed: _submit,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2E7D32),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: EdgeInsets.zero,
                       ),
-                    ),
-                    child: Text(
-                      'Confirm',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
+                      child: Text(
+                        'Confirm',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
