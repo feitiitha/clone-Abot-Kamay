@@ -5,6 +5,12 @@ import 'admin-report_management.dart';
 import 'admin-user_management.dart';
 import 'admin-content_management.dart';
 import 'admin-logs_monitoring.dart';
+import 'admin_management.dart';
+import 'admin-settings.dart';
+
+final ValueNotifier<int> globalNavIndex = ValueNotifier(0);
+final ValueNotifier<String> globalTheme = ValueNotifier('default');
+final ValueNotifier<String?> globalProfileImage = ValueNotifier(null);
 
 void main() {
   runApp(
@@ -33,42 +39,83 @@ class AdminDashboardHomepage extends StatefulWidget {
 }
 
 class _AdminDashboardHomepageState extends State<AdminDashboardHomepage> {
-  int _selectedNavIndex = 0;
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: DC.bgPage,
-      body: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // ── Sidebar ──
-          _Sidebar(
-            selectedIndex: _selectedNavIndex,
-            onSelect: (i) => setState(() => _selectedNavIndex = i),
-          ),
-          // ── Main content with gradient bg ──
-          Expanded(
-            child: Container(
-              decoration: const BoxDecoration(
+    return ValueListenableBuilder<String>(
+      valueListenable: globalTheme,
+      builder: (context, themeStr, _) {
+        return ValueListenableBuilder<int>(
+          valueListenable: globalNavIndex,
+          builder: (context, navIndex, _) {
+            Decoration bgDeco;
+            if (themeStr == 'sunset') {
+              bgDeco = const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Color(0xFFFFF1F1),
+                    Color(0xFFFFF7ED),
+                    Color(0xFFFEFEF2),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              );
+            } else if (themeStr == 'default') {
+              bgDeco = const BoxDecoration(
                 image: DecorationImage(
                   image: AssetImage('assets/bg/bg-admin-login-gradient.png'),
                   fit: BoxFit.cover,
                 ),
+              );
+            } else {
+              // Custom theme colors from image colors if any
+              bgDeco = const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Color(0xFFF8FAFC),
+                    Color(0xFFF1F5F9),
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+              );
+            }
+
+            return Scaffold(
+              backgroundColor: DC.bgPage,
+              body: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // ── Sidebar ──
+                  _Sidebar(
+                    selectedIndex: navIndex,
+                    onSelect: (i) => globalNavIndex.value = i,
+                  ),
+                  // ── Main content with gradient bg ──
+                  Expanded(
+                    child: Container(
+                      decoration: bgDeco,
+                      child: navIndex == 1
+                          ? const ReportManagementBody()
+                          : navIndex == 2
+                          ? const UserManagementBody()
+                          : navIndex == 3
+                          ? const ContentManagementBody()
+                          : navIndex == 4
+                          ? const LogsMonitoringBody()
+                          : navIndex == 5
+                          ? const AdminManagementBody()
+                          : navIndex == 6
+                          ? const SettingsBody()
+                          : const _DashboardBody(),
+                    ),
+                  ),
+                ],
               ),
-              child: _selectedNavIndex == 1
-                  ? const ReportManagementBody()
-                  : _selectedNavIndex == 2
-                  ? const UserManagementBody()
-                  : _selectedNavIndex == 3
-                  ? const ContentManagementBody()
-                  : _selectedNavIndex == 4
-                  ? const LogsMonitoringBody()
-                  : const _DashboardBody(),
-            ),
-          ),
-        ],
-      ),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -359,53 +406,7 @@ class _DashboardBody extends StatelessWidget {
                   ),
                 ],
               ),
-              Row(
-                children: [
-                  _IconCircleButton(icon: Icons.notifications_none_rounded),
-                  const SizedBox(width: 14),
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: const Color(0xFFF1656A),
-                    child: const Icon(
-                      Icons.person,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Stella Santuyo',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: DC.primaryDark,
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.radio_button_unchecked,
-                            size: 11,
-                            color: DC.textSoft,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Superadmin',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 12,
-                              color: DC.textSoft,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+              const TopProfileMenu(),
             ],
           ),
           const SizedBox(height: 20),

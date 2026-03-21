@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'admin-logs_monitoring.dart';
+import 'admin-settings.dart';
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 class DC {
@@ -190,6 +192,7 @@ class _ReportManagementBodyState extends State<ReportManagementBody> {
           r.vulnerability = v;
           r.adminNotes = n.isEmpty ? 'None' : n;
         });
+        addSystemLog('Stella Santuyo', 'Super Admin', 'Updated Report Status', r.id, 'Updated Report ${r.id} to "$s"');
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -288,56 +291,7 @@ class _ReportManagementBodyState extends State<ReportManagementBody> {
                   ),
                 ],
               ),
-              Row(
-                children: [
-                  _CircleIconBtn(
-                    icon: Icons.notifications_none_rounded,
-                    onTap: () {},
-                  ),
-                  const SizedBox(width: 14),
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: const Color(0xFFF1656A),
-                    child: const Icon(
-                      Icons.person,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Stella Santuyo',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: DC.primaryDark,
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.radio_button_unchecked,
-                            size: 11,
-                            color: DC.textSoft,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Superadmin',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 12,
-                              color: DC.textSoft,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+              const TopProfileMenu(),
             ],
           ),
           const SizedBox(height: 20),
@@ -411,43 +365,51 @@ class _ReportManagementBodyState extends State<ReportManagementBody> {
             child: Row(
               children: [
                 Expanded(
-                  child: Row(
-                    children: [
-                      Icon(Icons.search_rounded, size: 20, color: DC.textSoft),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          controller: _searchCtrl,
-                          onChanged: (v) => setState(() => _searchQuery = v),
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 14,
-                            color: DC.primaryDark,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: DC.border),
+                      borderRadius: BorderRadius.circular(50)
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.search_rounded, size: 20, color: DC.textSoft),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: _searchCtrl,
+                            onChanged: (v) => setState(() => _searchQuery = v),
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 14,
+                              color: DC.primaryDark,
+                            ),
+                            decoration: InputDecoration(
+                              hintText:
+                                  'Search by ID, location, reporter, status…',
+                              hintStyle: GoogleFonts.plusJakartaSans(
+                                fontSize: 13.5,
+                                color: DC.textSoft,
+                              ),
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
                           ),
-                          decoration: InputDecoration(
-                            hintText:
-                                'Search by ID, location, reporter, status…',
-                            hintStyle: GoogleFonts.plusJakartaSans(
-                              fontSize: 13.5,
+                        ),
+                        if (_searchQuery.isNotEmpty)
+                          GestureDetector(
+                            onTap: () {
+                              _searchCtrl.clear();
+                              setState(() => _searchQuery = '');
+                            },
+                            child: Icon(
+                              Icons.close_rounded,
+                              size: 16,
                               color: DC.textSoft,
                             ),
-                            border: InputBorder.none,
-                            isDense: true,
                           ),
-                        ),
-                      ),
-                      if (_searchQuery.isNotEmpty)
-                        GestureDetector(
-                          onTap: () {
-                            _searchCtrl.clear();
-                            setState(() => _searchQuery = '');
-                          },
-                          child: Icon(
-                            Icons.close_rounded,
-                            size: 16,
-                            color: DC.textSoft,
-                          ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1956,10 +1918,11 @@ class _XBtn extends StatelessWidget {
   );
 }
 
-class _StatCard extends StatelessWidget {
+class _StatCard extends StatefulWidget {
   final String title, value, growth, iconAsset;
   final IconData fallback;
   final Color iconBg, iconColor;
+
   const _StatCard({
     required this.title,
     required this.value,
@@ -1969,83 +1932,141 @@ class _StatCard extends StatelessWidget {
     required this.iconBg,
     required this.iconColor,
   });
+
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.04),
-          blurRadius: 16,
-          offset: const Offset(0, 3),
-        ),
-      ],
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              title,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: DC.textMid,
-              ),
-            ),
-            Container(
-              width: 36,
-              height: 36,
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Image.asset(
-                iconAsset,
-                color: iconColor,
-                errorBuilder: (_, __, ___) =>
-                    Icon(fallback, size: 17, color: iconColor),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Text(
-          value,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 28,
-            fontWeight: FontWeight.w800,
-            color: DC.primaryDark,
-            letterSpacing: -0.5,
+  State<_StatCard> createState() => _StatCardState();
+}
+
+class _StatCardState extends State<_StatCard> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+  bool _hover = false;
+  late int _targetValue;
+
+  @override
+  void initState() {
+    super.initState();
+    _targetValue = int.tryParse(widget.value.replaceAll(',', '')) ?? 0;
+    _ctrl = AnimationController(
+       vsync: this,
+       duration: const Duration(milliseconds: 2500),
+    );
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    Future.delayed(const Duration(milliseconds: 200), () {
+       if (mounted) _ctrl.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  String _fmt(double v) {
+    if (_targetValue == 0) return widget.value; // Fallback to raw string if not a number
+    final n = v.round();
+    if (n >= 1000) {
+       final s = n.toString();
+       return '${s.substring(0, s.length - 3)},${s.substring(s.length - 3)}';
+    }
+    return n.toString();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        transform: Matrix4.translationValues(0, _hover ? -4 : 0, 0),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+             color: _hover ? DC.primary.withOpacity(0.20) : Colors.transparent,
+             width: 1.5,
           ),
+          boxShadow: [
+             BoxShadow(
+                color: _hover
+                   ? DC.primary.withOpacity(0.10)
+                   : Colors.black.withOpacity(0.04),
+                blurRadius: _hover ? 28 : 16,
+                offset: const Offset(0, 6),
+             ),
+          ],
         ),
-        const SizedBox(height: 4),
-        Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(
-              Icons.arrow_upward_rounded,
-              size: 11,
-              color: Color(0xFF15803D),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  widget.title,
+                  style: GoogleFonts.plusJakartaSans(
+                     fontSize: 13,
+                     fontWeight: FontWeight.w600,
+                     color: DC.textMid,
+                  ),
+                ),
+                Container(
+                  width: 36,
+                  height: 36,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                     color: widget.iconBg,
+                     borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Image.asset(
+                     widget.iconAsset,
+                     color: widget.iconColor,
+                     errorBuilder: (_, __, ___) =>
+                        Icon(widget.fallback, size: 17, color: widget.iconColor),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 3),
-            Text(
-              growth,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF15803D),
+            const SizedBox(height: 12),
+            AnimatedBuilder(
+              animation: _anim,
+              builder: (_, __) => Text(
+                _fmt(_anim.value * _targetValue),
+                style: GoogleFonts.plusJakartaSans(
+                   fontSize: 28,
+                   fontWeight: FontWeight.w800,
+                   color: DC.primaryDark,
+                   letterSpacing: -0.5,
+                ),
               ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Icon(
+                  Icons.arrow_upward_rounded,
+                  size: 11,
+                  color: Color(0xFF15803D),
+                ),
+                const SizedBox(width: 3),
+                Text(
+                  widget.growth,
+                  style: GoogleFonts.plusJakartaSans(
+                     fontSize: 11.5,
+                     fontWeight: FontWeight.w600,
+                     color: const Color(0xFF15803D),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
-      ],
-    ),
-  );
+      ),
+    );
+  }
 }
 
 class _MediaThumb extends StatelessWidget {

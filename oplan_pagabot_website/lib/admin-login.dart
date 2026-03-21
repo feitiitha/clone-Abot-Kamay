@@ -16,13 +16,6 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
   bool _obscureText = true;
   bool _rememberMe = false;
 
-  // ── Password Validation ──────────────────────────────────────────────────────
-  // FIX 3: Collapsed into one combined flag — all 3 rules must pass together.
-  bool get _allRulesMet =>
-      _password.length >= 8 &&
-      _password.contains(RegExp(r'[A-Z]')) &&
-      _password.contains(RegExp(r'[0-9!@#$%^&*(),.?":{}|<>]'));
-
   // ── Carousel State ───────────────────────────────────────────────────────────
   final PageController _pageController = PageController();
   int _currentPage = 0;
@@ -347,7 +340,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                         alignment: Alignment.topCenter,
                         child: Padding(
                           padding: const EdgeInsets.only(top: 10),
-                          child: _PasswordHintRow(allMet: _allRulesMet),
+                          child: _PasswordHintRow(password: _password),
                         ),
                       )
                     : const SizedBox.shrink(),
@@ -523,14 +516,24 @@ class _FieldLabel extends StatelessWidget {
 // Shows ONE compact row that says "Password requirements not met" or "✓ Looks good!"
 // instead of listing 3 separate validation rows while typing.
 class _PasswordHintRow extends StatelessWidget {
-  final bool allMet;
-  const _PasswordHintRow({required this.allMet});
+  final String password;
+  const _PasswordHintRow({required this.password});
 
   @override
   Widget build(BuildContext context) {
+    if (password.isEmpty) return const SizedBox.shrink();
+
+    final reqLen = password.length >= 8;
+    final reqUpper = password.contains(RegExp(r'[A-Z]'));
+    final reqLower = password.contains(RegExp(r'[a-z]'));
+    final reqNum = password.contains(RegExp(r'[0-9]'));
+    final reqSpecial = password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
+
+    final allMet = reqLen && reqUpper && reqLower && reqNum && reqSpecial;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: allMet
             ? const Color(0xFFEAFBF0) // soft green bg
@@ -544,24 +547,29 @@ class _PasswordHintRow extends StatelessWidget {
         ),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            allMet ? Icons.check_circle_rounded : Icons.info_outline_rounded,
-            size: 15,
-            color: allMet ? const Color(0xFF1A7A48) : const Color(0xFFBF4040),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(
+              allMet ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+              size: 15,
+              color: allMet ? const Color(0xFF1A7A48) : const Color(0xFFBF4040),
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               allMet
                   ? 'Password looks good!'
-                  : 'Must be 8+ characters, include a capital letter & a number or special character.',
+                  : 'Must be 8+ characters, include a capital & lowercase letter, a number, and a special character.',
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w500,
                 color: allMet
                     ? const Color(0xFF1A7A48)
                     : const Color(0xFFBF4040),
+                height: 1.4,
               ),
             ),
           ),

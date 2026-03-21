@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'admin-logs_monitoring.dart';
+import 'admin-settings.dart';
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 class DC {
@@ -148,6 +150,7 @@ class UserManagementBody extends StatefulWidget {
 class _UserManagementBodyState extends State<UserManagementBody> {
   final _searchCtrl = TextEditingController();
   String _searchQuery = '';
+  String? _filterStatus;
   String _sortField = 'id';
   bool _sortAsc = true;
 
@@ -160,19 +163,73 @@ class _UserManagementBodyState extends State<UserManagementBody> {
   List<UserRecord> get _displayed {
     var list = _masterUsers.where((r) {
       final q = _searchQuery.toLowerCase();
-      return q.isEmpty ||
+      final ms = q.isEmpty ||
           r.id.toLowerCase().contains(q) ||
           r.email.toLowerCase().contains(q) ||
           r.fullName.toLowerCase().contains(q);
+      final fs = _filterStatus == null || r.status == _filterStatus;
+      return ms && fs;
     }).toList();
     list.sort((a, b) {
-      final cmp = _sortField == 'id'
-          ? a.id.compareTo(b.id)
-          : a.id.compareTo(b.id);
+      dynamic valA, valB;
+      switch (_sortField) {
+        case 'name':
+          valA = a.fullName.toLowerCase();
+          valB = b.fullName.toLowerCase();
+          break;
+        case 'status':
+          valA = a.status.toLowerCase();
+          valB = b.status.toLowerCase();
+          break;
+        default:
+          valA = a.id.toLowerCase();
+          valB = b.id.toLowerCase();
+      }
+      final cmp = valA.compareTo(valB);
       return _sortAsc ? cmp : -cmp;
     });
     return list;
   }
+
+  void _openFilter() => showModalBottomSheet(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (_) => _FilterSheet(
+          currentStatus: _filterStatus,
+          onApply: (s) {
+            setState(() {
+              _filterStatus = s;
+            });
+            Navigator.pop(context);
+          },
+          onClear: () {
+            setState(() {
+              _filterStatus = null;
+            });
+            Navigator.pop(context);
+          },
+        ),
+      );
+
+  void _openSort() => showModalBottomSheet(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (_) => _SortSheet(
+          currentField: _sortField,
+          ascending: _sortAsc,
+          onApply: (f, a) {
+            setState(() {
+              _sortField = f;
+              _sortAsc = a;
+            });
+            Navigator.pop(context);
+          },
+        ),
+      );
 
   void _openView(UserRecord r) => showDialog(
         context: context,
@@ -200,6 +257,7 @@ class _UserManagementBodyState extends State<UserManagementBody> {
             setState(() {
               r.status = s;
             });
+            addSystemLog('Stella Santuyo', 'Super Admin', 'Updated User Status', r.id, 'Updated User ${r.id} status to "$s"');
             Navigator.pop(context);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -256,56 +314,7 @@ class _UserManagementBodyState extends State<UserManagementBody> {
                   ),
                 ],
               ),
-              Row(
-                children: [
-                  _CircleIconBtn(
-                    icon: Icons.notifications_none_rounded,
-                    onTap: () {},
-                  ),
-                  const SizedBox(width: 14),
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: const Color(0xFFF1656A),
-                    child: const Icon(
-                      Icons.person,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Stella Santuyo',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: DC.primaryDark,
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.shield_outlined,
-                            size: 11,
-                            color: DC.textSoft,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Superadmin',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 12,
-                              color: DC.textSoft,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+              const TopProfileMenu(),
             ],
           ),
           const SizedBox(height: 20),
@@ -383,11 +392,15 @@ class _UserManagementBodyState extends State<UserManagementBody> {
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     decoration: BoxDecoration(
                       border: Border.all(color: DC.border),
-                      borderRadius: BorderRadius.circular(50)
+                      borderRadius: BorderRadius.circular(50),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.search_rounded, size: 20, color: DC.textSoft),
+                        const Icon(
+                          Icons.search_rounded,
+                          size: 20,
+                          color: DC.textSoft,
+                        ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: TextField(
@@ -398,14 +411,16 @@ class _UserManagementBodyState extends State<UserManagementBody> {
                               color: DC.primaryDark,
                             ),
                             decoration: InputDecoration(
-                              hintText: 'Search by email or UID',
+                              hintText: 'Search by UID, name, or email',
                               hintStyle: GoogleFonts.plusJakartaSans(
                                 fontSize: 13.5,
                                 color: DC.textSoft,
                               ),
                               border: InputBorder.none,
                               isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(vertical: 12)
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 12,
+                              ),
                             ),
                           ),
                         ),
@@ -415,7 +430,7 @@ class _UserManagementBodyState extends State<UserManagementBody> {
                               _searchCtrl.clear();
                               setState(() => _searchQuery = '');
                             },
-                            child: Icon(
+                            child: const Icon(
                               Icons.close_rounded,
                               size: 16,
                               color: DC.textSoft,
@@ -426,18 +441,35 @@ class _UserManagementBodyState extends State<UserManagementBody> {
                   ),
                 ),
                 const SizedBox(width: 12),
+                if (_filterStatus != null)
+                  Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: DC.primary.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      _filterStatus!,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11.5,
+                        color: DC.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
                 _BarChipBtn(
                   icon: Icons.filter_list_rounded,
                   label: 'Filter',
-                  active: false,
-                  onTap: () {},
+                  active: _filterStatus != null,
+                  onTap: _openFilter,
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 _BarChipBtn(
-                  icon: Icons.swap_vert_rounded,
+                  icon: Icons.sort_rounded,
                   label: 'Sort',
-                  active: false,
-                  onTap: () {},
+                  active: true,
+                  onTap: _openSort,
                 ),
               ],
             ),
@@ -1322,10 +1354,11 @@ class _XBtn extends StatelessWidget {
   );
 }
 
-class _StatCard extends StatelessWidget {
+class _StatCard extends StatefulWidget {
   final String title, value, growth, iconAsset;
   final IconData fallback;
   final Color iconBg, iconColor;
+
   const _StatCard({
     required this.title,
     required this.value,
@@ -1335,84 +1368,143 @@ class _StatCard extends StatelessWidget {
     required this.iconBg,
     required this.iconColor,
   });
+
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.04),
-          blurRadius: 16,
-          offset: const Offset(0, 3),
-        ),
-      ],
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              title,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: DC.textMid,
-              ),
-            ),
-            Container(
-              width: 36,
-              height: 36,
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Image.asset(
-                iconAsset,
-                color: iconColor,
-                errorBuilder: (_, __, ___) =>
-                    Icon(fallback, size: 17, color: iconColor),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Text(
-          value,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 28,
-            fontWeight: FontWeight.w800,
-            color: DC.primaryDark,
-            letterSpacing: -0.5,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Row(
-          children: [
-            const Icon(
-              Icons.check_circle_outline,
-              size: 11,
-              color: Color(0xFF15803D), // just a mock
-            ),
-            const SizedBox(width: 3),
-            Text(
-              growth,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF15803D),
-              ),
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
+  State<_StatCard> createState() => _StatCardState();
 }
+
+class _StatCardState extends State<_StatCard> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+  bool _hover = false;
+  late int _targetValue;
+
+  @override
+  void initState() {
+    super.initState();
+    _targetValue = int.tryParse(widget.value.replaceAll(',', '')) ?? 0;
+    _ctrl = AnimationController(
+       vsync: this,
+       duration: const Duration(milliseconds: 2500),
+    );
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    Future.delayed(const Duration(milliseconds: 200), () {
+       if (mounted) _ctrl.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  String _fmt(double v) {
+    if (_targetValue == 0) return widget.value; // Fallback to raw string if not a number
+    final n = v.round();
+    if (n >= 1000) {
+       final s = n.toString();
+       return '${s.substring(0, s.length - 3)},${s.substring(s.length - 3)}';
+    }
+    return n.toString();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        transform: Matrix4.translationValues(0, _hover ? -4 : 0, 0),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+             color: _hover ? DC.primary.withOpacity(0.20) : Colors.transparent,
+             width: 1.5,
+          ),
+          boxShadow: [
+             BoxShadow(
+                color: _hover
+                   ? DC.primary.withOpacity(0.10)
+                   : Colors.black.withOpacity(0.04),
+                blurRadius: _hover ? 28 : 16,
+                offset: const Offset(0, 6),
+             ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  widget.title,
+                  style: GoogleFonts.plusJakartaSans(
+                     fontSize: 13,
+                     fontWeight: FontWeight.w600,
+                     color: DC.textMid,
+                  ),
+                ),
+                Container(
+                  width: 36,
+                  height: 36,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                     color: widget.iconBg,
+                     borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Image.asset(
+                     widget.iconAsset,
+                     color: widget.iconColor,
+                     errorBuilder: (_, __, ___) =>
+                        Icon(widget.fallback, size: 17, color: widget.iconColor),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            AnimatedBuilder(
+              animation: _anim,
+              builder: (_, __) => Text(
+                _fmt(_anim.value * _targetValue),
+                style: GoogleFonts.plusJakartaSans(
+                   fontSize: 28,
+                   fontWeight: FontWeight.w800,
+                   color: DC.primaryDark,
+                   letterSpacing: -0.5,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Icon(
+                  Icons.check_circle_outline,
+                  size: 11,
+                  color: Color(0xFF15803D),
+                ),
+                const SizedBox(width: 3),
+                Text(
+                  widget.growth,
+                  style: GoogleFonts.plusJakartaSans(
+                     fontSize: 11.5,
+                     fontWeight: FontWeight.w600,
+                     color: const Color(0xFF15803D),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 
 class _TH extends StatelessWidget {
   final String label;
@@ -1772,4 +1864,264 @@ class _VerifyIdentityDialogState extends State<_VerifyIdentityDialog> {
       ),
     );
   }
+}
+class _FilterSheet extends StatefulWidget {
+  final String? currentStatus;
+  final void Function(String?) onApply;
+  final VoidCallback onClear;
+  const _FilterSheet({
+    required this.currentStatus,
+    required this.onApply,
+    required this.onClear,
+  });
+  @override
+  State<_FilterSheet> createState() => _FilterSheetState();
+}
+
+class _FilterSheetState extends State<_FilterSheet> {
+  String? _status;
+  @override
+  void initState() {
+    super.initState();
+    _status = widget.currentStatus;
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Filter Records',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: DC.primaryDark,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Status',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: DC.textMid,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              children: ['Verified', 'Pending', 'Denied']
+                  .map(
+                    (s) => _ToggleChip(
+                      label: s,
+                      selected: _status == s,
+                      onTap: () => setState(() => _status = _status == s ? null : s),
+                    ),
+                  )
+                  .toList(),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: widget.onClear,
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: DC.border),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(50),
+                      ),
+                    ),
+                    child: Text(
+                      'Clear All',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: DC.textMid,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => widget.onApply(_status),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: DC.primary,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(50),
+                      ),
+                    ),
+                    child: Text(
+                      'Apply',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+}
+
+class _SortSheet extends StatefulWidget {
+  final String currentField;
+  final bool ascending;
+  final void Function(String, bool) onApply;
+  const _SortSheet({
+    required this.currentField,
+    required this.ascending,
+    required this.onApply,
+  });
+  @override
+  State<_SortSheet> createState() => _SortSheetState();
+}
+
+class _SortSheetState extends State<_SortSheet> {
+  late String _field;
+  late bool _asc;
+  @override
+  void initState() {
+    super.initState();
+    _field = widget.currentField;
+    _asc = widget.ascending;
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Sort Records',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: DC.primaryDark,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Sort by',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: DC.textMid,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              children: [
+                _ToggleChip(
+                  label: 'User UID',
+                  selected: _field == 'id',
+                  onTap: () => setState(() => _field = 'id'),
+                ),
+                _ToggleChip(
+                  label: 'Full Name',
+                  selected: _field == 'name',
+                  onTap: () => setState(() => _field = 'name'),
+                ),
+                _ToggleChip(
+                  label: 'Status',
+                  selected: _field == 'status',
+                  onTap: () => setState(() => _field = 'status'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Text(
+              'Order',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: DC.textMid,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              children: [
+                _ToggleChip(
+                  label: 'Ascending',
+                  selected: _asc,
+                  onTap: () => setState(() => _asc = true),
+                ),
+                _ToggleChip(
+                  label: 'Descending',
+                  selected: !_asc,
+                  onTap: () => setState(() => _asc = false),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => widget.onApply(_field, _asc),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: DC.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(50),
+                  ),
+                ),
+                child: Text(
+                  'Apply Sort',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+}class _ToggleChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _ToggleChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? DC.primary : Colors.white,
+            border: Border.all(color: selected ? DC.primary : DC.border),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: selected ? Colors.white : DC.textMid,
+            ),
+          ),
+        ),
+      );
 }
