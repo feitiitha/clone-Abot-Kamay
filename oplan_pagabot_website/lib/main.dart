@@ -6,7 +6,7 @@ void main() {
   runApp(
     const MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Oplan Pag-abot',
+      title: 'Abot-Kamay',
       home: AdminLoginPage(),
     ),
   );

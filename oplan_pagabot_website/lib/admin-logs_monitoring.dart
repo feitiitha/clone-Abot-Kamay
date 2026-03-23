@@ -39,20 +39,31 @@ String _formatDate(DateTime d) {
   final m = d.minute.toString().padLeft(2, '0');
   final s = d.second.toString().padLeft(2, '0');
   final ampm = h >= 12 ? 'PM' : 'AM';
-  if (h == 0) h = 12;
-  else if (h > 12) h -= 12;
+  if (h == 0)
+    h = 12;
+  else if (h > 12)
+    h -= 12;
   return '$mm/$dd/$yyyy, ${h.toString().padLeft(2, '0')}:$m:$s $ampm';
 }
 
-void addSystemLog(String performedBy, String role, String action, String target, String details) {
-  globalLogs.insert(0, LogRecord(
-    timestamp: _formatDate(DateTime.now()),
-    performedBy: performedBy,
-    role: role,
-    action: action,
-    target: target,
-    details: details,
-  ));
+void addSystemLog(
+  String performedBy,
+  String role,
+  String action,
+  String target,
+  String details,
+) {
+  globalLogs.insert(
+    0,
+    LogRecord(
+      timestamp: _formatDate(DateTime.now()),
+      performedBy: performedBy,
+      role: role,
+      action: action,
+      target: target,
+      details: details,
+    ),
+  );
 }
 
 final List<LogRecord> globalLogs = [
@@ -138,7 +149,8 @@ class _LogsMonitoringBodyState extends State<LogsMonitoringBody> {
   List<LogRecord> get _displayed {
     var list = globalLogs.where((r) {
       final q = _searchQuery.toLowerCase();
-      final ms = q.isEmpty ||
+      final ms =
+          q.isEmpty ||
           r.performedBy.toLowerCase().contains(q) ||
           r.target.toLowerCase().contains(q) ||
           r.action.toLowerCase().contains(q) ||
@@ -166,44 +178,44 @@ class _LogsMonitoringBodyState extends State<LogsMonitoringBody> {
   }
 
   void _openFilter() => showModalBottomSheet(
-        context: context,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        builder: (_) => _FilterSheet(
-          currentRole: _filterRole,
-          onApply: (r) {
-            setState(() {
-              _filterRole = r;
-            });
-            Navigator.pop(context);
-          },
-          onClear: () {
-            setState(() {
-              _filterRole = null;
-            });
-            Navigator.pop(context);
-          },
-        ),
-      );
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => _FilterSheet(
+      currentRole: _filterRole,
+      onApply: (r) {
+        setState(() {
+          _filterRole = r;
+        });
+        Navigator.pop(context);
+      },
+      onClear: () {
+        setState(() {
+          _filterRole = null;
+        });
+        Navigator.pop(context);
+      },
+    ),
+  );
 
   void _openSort() => showModalBottomSheet(
-        context: context,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        builder: (_) => _SortSheet(
-          currentField: _sortField,
-          ascending: _sortAsc,
-          onApply: (f, a) {
-            setState(() {
-              _sortField = f;
-              _sortAsc = a;
-            });
-            Navigator.pop(context);
-          },
-        ),
-      );
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => _SortSheet(
+      currentField: _sortField,
+      ascending: _sortAsc,
+      onApply: (f, a) {
+        setState(() {
+          _sortField = f;
+          _sortAsc = a;
+        });
+        Navigator.pop(context);
+      },
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -315,7 +327,10 @@ class _LogsMonitoringBodyState extends State<LogsMonitoringBody> {
                 if (_filterRole != null)
                   Container(
                     margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: DC.primary.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(20),
@@ -451,91 +466,91 @@ class _FilterSheetState extends State<_FilterSheet> {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+    padding: const EdgeInsets.all(28),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Filter Logs',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+            color: DC.primaryDark,
+          ),
+        ),
+        const SizedBox(height: 20),
+        Text(
+          'Role',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: DC.textMid,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          children: ['Admin', 'Super Admin']
+              .map(
+                (r) => _ToggleChip(
+                  label: r,
+                  selected: _role == r,
+                  onTap: () => setState(() => _role = _role == r ? null : r),
+                ),
+              )
+              .toList(),
+        ),
+        const SizedBox(height: 24),
+        Row(
           children: [
-            Text(
-              'Filter Logs',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                color: DC.primaryDark,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Role',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: DC.textMid,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              children: ['Admin', 'Super Admin']
-                  .map(
-                    (r) => _ToggleChip(
-                      label: r,
-                      selected: _role == r,
-                      onTap: () => setState(() => _role = _role == r ? null : r),
-                    ),
-                  )
-                  .toList(),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: widget.onClear,
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: DC.border),
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(50),
-                      ),
-                    ),
-                    child: Text(
-                      'Clear All',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                        color: DC.textMid,
-                      ),
-                    ),
+            Expanded(
+              child: OutlinedButton(
+                onPressed: widget.onClear,
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: DC.border),
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(50),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => widget.onApply(_role),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: DC.primary,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(50),
-                      ),
-                    ),
-                    child: Text(
-                      'Apply',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                      ),
-                    ),
+                child: Text(
+                  'Clear All',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: DC.textMid,
                   ),
                 ),
-              ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () => widget.onApply(_role),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: DC.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(50),
+                  ),
+                ),
+                child: Text(
+                  'Apply',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
             ),
           ],
         ),
-      );
+      ],
+    ),
+  );
 }
 
 class _SortSheet extends StatefulWidget {
@@ -563,95 +578,95 @@ class _SortSheetState extends State<_SortSheet> {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+    padding: const EdgeInsets.all(28),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Sort Logs',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+            color: DC.primaryDark,
+          ),
+        ),
+        const SizedBox(height: 20),
+        Text(
+          'Sort by',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: DC.textMid,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
           children: [
-            Text(
-              'Sort Logs',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                color: DC.primaryDark,
-              ),
+            _ToggleChip(
+              label: 'Timestamp',
+              selected: _field == 'time',
+              onTap: () => setState(() => _field = 'time'),
             ),
-            const SizedBox(height: 20),
-            Text(
-              'Sort by',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: DC.textMid,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              children: [
-                _ToggleChip(
-                  label: 'Timestamp',
-                  selected: _field == 'time',
-                  onTap: () => setState(() => _field = 'time'),
-                ),
-                _ToggleChip(
-                  label: 'Performed By',
-                  selected: _field == 'user',
-                  onTap: () => setState(() => _field = 'user'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            Text(
-              'Order',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: DC.textMid,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              children: [
-                _ToggleChip(
-                  label: 'Newest First',
-                  selected: !_asc,
-                  onTap: () => setState(() => _asc = false),
-                ),
-                _ToggleChip(
-                  label: 'Oldest First',
-                  selected: _asc,
-                  onTap: () => setState(() => _asc = true),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => widget.onApply(_field, _asc),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: DC.primary,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(50),
-                  ),
-                ),
-                child: Text(
-                  'Apply Sort',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
+            _ToggleChip(
+              label: 'Performed By',
+              selected: _field == 'user',
+              onTap: () => setState(() => _field = 'user'),
             ),
           ],
         ),
-      );
+        const SizedBox(height: 18),
+        Text(
+          'Order',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: DC.textMid,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          children: [
+            _ToggleChip(
+              label: 'Newest First',
+              selected: !_asc,
+              onTap: () => setState(() => _asc = false),
+            ),
+            _ToggleChip(
+              label: 'Oldest First',
+              selected: _asc,
+              onTap: () => setState(() => _asc = true),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () => widget.onApply(_field, _asc),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: DC.primary,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(50),
+              ),
+            ),
+            child: Text(
+              'Apply Sort',
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _ToggleChip extends StatelessWidget {
@@ -665,25 +680,25 @@ class _ToggleChip extends StatelessWidget {
   });
   @override
   Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: selected ? DC.primary : Colors.white,
-            border: Border.all(color: selected ? DC.primary : DC.border),
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Text(
-            label,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: selected ? Colors.white : DC.textMid,
-            ),
-          ),
+    onTap: onTap,
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 140),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: selected ? DC.primary : Colors.white,
+        border: Border.all(color: selected ? DC.primary : DC.border),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: selected ? Colors.white : DC.textMid,
         ),
-      );
+      ),
+    ),
+  );
 }
 
 class _BarChipBtn extends StatefulWidget {

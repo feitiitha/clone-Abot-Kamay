@@ -12,9 +12,83 @@ class AdminLoginPage extends StatefulWidget {
 
 class _AdminLoginPageState extends State<AdminLoginPage> {
   // ── Form State ───────────────────────────────────────────────────────────────
+  String _username = '';
   String _password = '';
   bool _obscureText = true;
   bool _rememberMe = false;
+
+  // ── Lockout State ────────────────────────────────────────────────────────────
+  int _attempts = 0;
+  DateTime? _lockoutUntil;
+  bool _requiresCaptcha = false;
+  bool _captchaSolved = false;
+  bool _isSuspended = false;
+
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: GoogleFonts.plusJakartaSans(color: Colors.white)),
+        backgroundColor: const Color(0xFFDC2626),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _handleLogin() {
+    if (_isSuspended) {
+      _showError('Permanent account suspension until manually unlocked by another super-admin.');
+      return;
+    }
+    if (_lockoutUntil != null) {
+      final now = DateTime.now();
+      if (now.isBefore(_lockoutUntil!)) {
+        final remaining = _lockoutUntil!.difference(now).inSeconds;
+        _showError('Account locked out for $remaining more seconds.');
+        return;
+      } else {
+        _lockoutUntil = null;
+      }
+    }
+    if (_requiresCaptcha && !_captchaSolved) {
+      _showError('Please complete the CAPTCHA requirement before logging in.');
+      return;
+    }
+
+    // Dummy validation to trigger lockout
+    if (_username != "superadmin" || _password != "admin123") {
+      setState(() {
+        _attempts++;
+        if (_attempts >= 10) {
+          _isSuspended = true;
+          _showError('Permanent account suspension until manually unlocked by another super-admin.');
+        } else if (_attempts >= 5) {
+          _lockoutUntil = DateTime.now().add(const Duration(minutes: 15));
+          _showError('5 Attempts reached: 15-minute lockout applied. Email notification sent to admin.');
+        } else if (_attempts >= 3) {
+          _lockoutUntil = DateTime.now().add(const Duration(minutes: 1));
+          _requiresCaptcha = true;
+          _captchaSolved = false;
+          _showError('3 Attempts reached: 1-minute lockout. CAPTCHA required for next login.');
+        } else {
+          _showError('Invalid login. Attempt $_attempts.');
+        }
+      });
+      return;
+    }
+
+    // Success reset
+    _attempts = 0;
+    _requiresCaptcha = false;
+    _captchaSolved = false;
+    
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AdminDashboardHomepage(),
+      ),
+    );
+  }
+
 
   // ── Carousel State ───────────────────────────────────────────────────────────
   final PageController _pageController = PageController();
@@ -318,6 +392,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                 hint: 'Enter Username',
                 iconPath: 'assets/icon/mail.png',
                 fallbackIcon: Icons.mail_outline_rounded,
+                onChanged: (val) => setState(() => _username = val),
               ),
               const SizedBox(height: 20),
 
@@ -403,19 +478,51 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
               ),
               const SizedBox(height: 28),
 
+              // ── CAPTCHA Display (Dynamic) ──
+              if (_requiresCaptcha) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Checkbox(
+                            value: _captchaSolved,
+                            onChanged: (v) {
+                              setState(() => _captchaSolved = v ?? false);
+                            },
+                            activeColor: const Color(0xFF15803D),
+                          ),
+                          Text(
+                            "I'm not a robot",
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: DC.primaryDark,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Icon(Icons.security, color: Colors.blue[800], size: 28),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+
               // ── Login Button ──
               SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AdminDashboardHomepage(),
-                      ),
-                    );
-                  },
+                  onPressed: _handleLogin,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF283891),
                     foregroundColor: Colors.white,

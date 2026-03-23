@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'admin-logs_monitoring.dart';
 import 'admin-settings.dart';
+import 'admin-user_management.dart';
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 class DC {
@@ -51,7 +52,7 @@ class ReportRecord {
   });
 }
 
-final List<ReportRecord> _masterReports = [
+final List<ReportRecord> globalMasterReports = [
   ReportRecord(
     id: 'RPT-001',
     city: 'Bacoor',
@@ -141,7 +142,7 @@ class _ReportManagementBodyState extends State<ReportManagementBody> {
   }
 
   List<ReportRecord> get _displayed {
-    var list = _masterReports.where((r) {
+    var list = globalMasterReports.where((r) {
       final q = _searchQuery.toLowerCase();
       final ms =
           q.isEmpty ||
@@ -261,6 +262,11 @@ class _ReportManagementBodyState extends State<ReportManagementBody> {
   @override
   Widget build(BuildContext context) {
     final rows = _displayed;
+    final int totalReports = globalMasterReports.length;
+    final int pendingReports = globalMasterReports.where((r) => r.status == 'Pending').length;
+    final int verifiedReports = globalMasterReports.where((r) => r.status == 'Validated').length;
+    final int totalUsers = globalMasterUsers.length;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(32, 28, 32, 32),
       child: Column(
@@ -301,7 +307,7 @@ class _ReportManagementBodyState extends State<ReportManagementBody> {
               Expanded(
                 child: _StatCard(
                   title: 'Total Users',
-                  value: '1,003',
+                  value: totalUsers.toString(),
                   growth: '+12% this month',
                   iconAsset: 'assets/icon/report/user-icon.png',
                   fallback: Icons.people_outline_rounded,
@@ -313,7 +319,7 @@ class _ReportManagementBodyState extends State<ReportManagementBody> {
               Expanded(
                 child: _StatCard(
                   title: 'Total Reports',
-                  value: '701',
+                  value: totalReports.toString(),
                   growth: '+10% this month',
                   iconAsset: 'assets/icon/report/file-icon.png',
                   fallback: Icons.description_outlined,
@@ -325,7 +331,7 @@ class _ReportManagementBodyState extends State<ReportManagementBody> {
               Expanded(
                 child: _StatCard(
                   title: 'Pending Reports',
-                  value: '100',
+                  value: pendingReports.toString(),
                   growth: '+12% this month',
                   iconAsset: 'assets/icon/report/pending-report-icon.png',
                   fallback: Icons.pending_actions_outlined,
@@ -337,7 +343,7 @@ class _ReportManagementBodyState extends State<ReportManagementBody> {
               Expanded(
                 child: _StatCard(
                   title: 'Verified Reports',
-                  value: '1,003',
+                  value: verifiedReports.toString(),
                   growth: '+12% this month',
                   iconAsset: 'assets/icon/report/verified-report-icon.png',
                   fallback: Icons.domain_verification_outlined,
@@ -522,7 +528,7 @@ class _ReportManagementBodyState extends State<ReportManagementBody> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       Text(
-                        'Showing ${rows.length} of ${_masterReports.length} records',
+                        'Showing ${rows.length} of ${globalMasterReports.length} records',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 12,
                           color: DC.textSoft,

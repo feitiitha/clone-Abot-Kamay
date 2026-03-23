@@ -54,7 +54,7 @@ class UserRecord {
   String get fullName => '$firstName $lastName';
 }
 
-final List<UserRecord> _masterUsers = [
+final List<UserRecord> globalMasterUsers = [
   UserRecord(
     id: 'USR-001',
     firstName: 'Juan',
@@ -161,7 +161,7 @@ class _UserManagementBodyState extends State<UserManagementBody> {
   }
 
   List<UserRecord> get _displayed {
-    var list = _masterUsers.where((r) {
+    var list = globalMasterUsers.where((r) {
       final q = _searchQuery.toLowerCase();
       final ms = q.isEmpty ||
           r.id.toLowerCase().contains(q) ||
@@ -284,6 +284,11 @@ class _UserManagementBodyState extends State<UserManagementBody> {
   @override
   Widget build(BuildContext context) {
     final rows = _displayed;
+    final int totalUsers = globalMasterUsers.length;
+    final int pending = globalMasterUsers.where((u) => u.status == 'Pending').length;
+    final int verified = globalMasterUsers.where((u) => u.status == 'Verified').length;
+    final int denied = globalMasterUsers.where((u) => u.status == 'Denied').length;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(32, 28, 32, 32),
       child: Column(
@@ -324,7 +329,7 @@ class _UserManagementBodyState extends State<UserManagementBody> {
               Expanded(
                 child: _StatCard(
                   title: 'Total Users',
-                  value: '1,003',
+                  value: totalUsers.toString(),
                   growth: '+12% this month',
                   iconAsset: 'assets/side-tab-icon/Frame.png',
                   fallback: Icons.people_outline_rounded,
@@ -336,7 +341,7 @@ class _UserManagementBodyState extends State<UserManagementBody> {
               Expanded(
                 child: _StatCard(
                   title: 'Pending',
-                  value: '701',
+                  value: pending.toString(),
                   growth: '+10% this month',
                   iconAsset: 'assets/icon/report/file-icon.png',
                   fallback: Icons.description_outlined,
@@ -348,7 +353,7 @@ class _UserManagementBodyState extends State<UserManagementBody> {
               Expanded(
                 child: _StatCard(
                   title: 'Verified',
-                  value: '100',
+                  value: verified.toString(),
                   growth: '+12% this month',
                   iconAsset: 'assets/icon/report/verified-report-icon.png',
                   fallback: Icons.domain_verification_outlined,
@@ -360,7 +365,7 @@ class _UserManagementBodyState extends State<UserManagementBody> {
               Expanded(
                 child: _StatCard(
                   title: 'Denied',
-                  value: '1,003',
+                  value: denied.toString(),
                   growth: '+12% this month',
                   iconAsset: 'assets/icon/report/verified-report-icon.png',
                   fallback: Icons.check_circle_outline,
@@ -543,7 +548,7 @@ class _UserManagementBodyState extends State<UserManagementBody> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       Text(
-                        'Show 1 out of 1 pages',
+                        'Showing ${rows.length} of ${globalMasterUsers.length} records',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 12,
                           color: DC.textSoft,

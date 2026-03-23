@@ -373,6 +373,15 @@ class _DashboardBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final int totalReports = globalMasterReports.length;
+    final int pendingReports = globalMasterReports
+        .where((r) => r.status == 'Pending')
+        .length;
+    final int verifiedReports = globalMasterReports
+        .where((r) => r.status == 'Validated')
+        .length;
+    final int totalUsers = globalMasterUsers.length;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(32, 28, 32, 32),
       child: Column(
@@ -465,9 +474,10 @@ class _DashboardBody extends StatelessWidget {
               Expanded(
                 child: _AnimatedStatCard(
                   title: 'Total Users',
-                  targetValue: 1003,
+                  value: totalUsers.toString(),
                   growth: '+12% this month',
-                  icon: Icons.people_outline_rounded,
+                  iconAsset: 'assets/icon/report/user-icon.png',
+                  fallback: Icons.people_outline_rounded,
                   iconBg: const Color(0xFFE6EDFF),
                   iconColor: const Color(0xFF3B5998),
                 ),
@@ -476,9 +486,10 @@ class _DashboardBody extends StatelessWidget {
               Expanded(
                 child: _AnimatedStatCard(
                   title: 'Total Reports',
-                  targetValue: 701,
+                  value: totalReports.toString(),
                   growth: '+10% this month',
-                  icon: Icons.description_outlined,
+                  iconAsset: 'assets/icon/report/file-icon.png',
+                  fallback: Icons.description_outlined,
                   iconBg: const Color(0xFFE6EDFF),
                   iconColor: const Color(0xFF3B5998),
                 ),
@@ -487,9 +498,10 @@ class _DashboardBody extends StatelessWidget {
               Expanded(
                 child: _AnimatedStatCard(
                   title: 'Pending Reports',
-                  targetValue: 100,
+                  value: pendingReports.toString(),
                   growth: '+12% this month',
-                  icon: Icons.pending_actions_outlined,
+                  iconAsset: 'assets/icon/report/pending-report-icon.png',
+                  fallback: Icons.pending_actions_outlined,
                   iconBg: const Color(0xFFFFECEC),
                   iconColor: const Color(0xFFBF4040),
                 ),
@@ -498,9 +510,10 @@ class _DashboardBody extends StatelessWidget {
               Expanded(
                 child: _AnimatedStatCard(
                   title: 'Verified Reports',
-                  targetValue: 1003,
+                  value: verifiedReports.toString(),
                   growth: '+12% this month',
-                  icon: Icons.domain_verification_outlined,
+                  iconAsset: 'assets/icon/report/verified-report-icon.png',
+                  fallback: Icons.domain_verification_outlined,
                   iconBg: const Color(0xFFE6F7EE),
                   iconColor: const Color(0xFF1A7A48),
                 ),
@@ -542,19 +555,19 @@ class _DashboardBody extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// ANIMATED STAT CARD
+// ANIMATED STAT CARD (copied from _StatCard in admin-report_management.dart)
 // ══════════════════════════════════════════════════════════════════════════════
 class _AnimatedStatCard extends StatefulWidget {
-  final String title, growth;
-  final int targetValue;
-  final IconData icon;
+  final String title, value, growth, iconAsset;
+  final IconData fallback;
   final Color iconBg, iconColor;
 
   const _AnimatedStatCard({
     required this.title,
-    required this.targetValue,
+    required this.value,
     required this.growth,
-    required this.icon,
+    required this.iconAsset,
+    required this.fallback,
     required this.iconBg,
     required this.iconColor,
   });
@@ -568,16 +581,18 @@ class _AnimatedStatCardState extends State<_AnimatedStatCard>
   late AnimationController _ctrl;
   late Animation<double> _anim;
   bool _hover = false;
+  late int _targetValue;
 
   @override
   void initState() {
     super.initState();
+    _targetValue = int.tryParse(widget.value.replaceAll(',', '')) ?? 0;
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 5000),
+      duration: const Duration(milliseconds: 2500),
     );
     _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
-    Future.delayed(const Duration(milliseconds: 400), () {
+    Future.delayed(const Duration(milliseconds: 200), () {
       if (mounted) _ctrl.forward();
     });
   }
@@ -589,6 +604,8 @@ class _AnimatedStatCardState extends State<_AnimatedStatCard>
   }
 
   String _fmt(double v) {
+    if (_targetValue == 0)
+      return widget.value; // Fallback to raw string if not a number
     final n = v.round();
     if (n >= 1000) {
       final s = n.toString();
@@ -605,7 +622,7 @@ class _AnimatedStatCardState extends State<_AnimatedStatCard>
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         transform: Matrix4.translationValues(0, _hover ? -4 : 0, 0),
-        padding: const EdgeInsets.all(22),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -638,84 +655,56 @@ class _AnimatedStatCardState extends State<_AnimatedStatCard>
                   ),
                 ),
                 Container(
+                  width: 36,
+                  height: 36,
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: widget.iconBg,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(widget.icon, size: 17, color: widget.iconColor),
+                  child: Image.asset(
+                    widget.iconAsset,
+                    color: widget.iconColor,
+                    errorBuilder: (_, __, ___) => Icon(
+                      widget.fallback,
+                      size: 17,
+                      color: widget.iconColor,
+                    ),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             AnimatedBuilder(
               animation: _anim,
               builder: (_, __) => Text(
-                _fmt(_anim.value * widget.targetValue),
+                _fmt(_anim.value * _targetValue),
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 30,
+                  fontSize: 28,
                   fontWeight: FontWeight.w800,
                   color: DC.primaryDark,
                   letterSpacing: -0.5,
                 ),
               ),
             ),
-            const SizedBox(height: 5),
+            const SizedBox(height: 4),
             Row(
               children: [
                 const Icon(
                   Icons.arrow_upward_rounded,
-                  size: 12,
-                  color: Color(0xFF1A7A48),
+                  size: 11,
+                  color: Color(0xFF15803D),
                 ),
                 const SizedBox(width: 3),
                 Text(
                   widget.growth,
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
+                    fontSize: 11.5,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFF1A7A48),
+                    color: const Color(0xFF15803D),
                   ),
                 ),
               ],
-            ),
-            // Hover tooltip
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: _hover
-                  ? Container(
-                      key: const ValueKey('tip'),
-                      margin: const EdgeInsets.only(top: 10),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        color: DC.primary.withOpacity(0.07),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline_rounded,
-                            size: 12,
-                            color: DC.primary,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              'Tap to view full ${widget.title} report',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 11,
-                                color: DC.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : const SizedBox.shrink(key: ValueKey('empty')),
             ),
           ],
         ),
@@ -983,33 +972,15 @@ class _RecentActivitiesCardState extends State<_RecentActivitiesCard> {
   bool _toast = false;
 
   void _viewAll() {
-    setState(() => _toast = true);
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _toast = false);
-    });
+    globalNavIndex.value =
+        4; // Assuming 4 is LogsMonitoringBody based on main navigation
   }
-
-  static const _items = [
-    ('Jose Garcia', 'Application completed', '5 minutes ago', 'Admin', false),
-    (
-      'Stella Santuyo',
-      'Published an article  CNT-001',
-      '6 minutes ago',
-      'Admin',
-      false,
-    ),
-    (
-      'Faith Cabanit',
-      'Updated report status • RPT-001',
-      '10 minutes ago',
-      'Admin',
-      true,
-    ),
-    ('Carl Erick Santos', 'Application Completed', '', 'Superadmin', false),
-  ];
 
   @override
   Widget build(BuildContext context) {
+    // Only display up to the 4 most recent logs
+    final recentLogs = globalLogs.take(4).toList();
+
     return Stack(
       children: [
         _CardWrapper(
@@ -1044,18 +1015,28 @@ class _RecentActivitiesCardState extends State<_RecentActivitiesCard> {
                 ],
               ),
               const SizedBox(height: 14),
-              ...List.generate(_items.length, (i) {
-                final a = _items[i];
+              if (recentLogs.isEmpty)
+                Text(
+                  'No recent activities.',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    color: DC.textSoft,
+                  ),
+                ),
+              ...List.generate(recentLogs.length, (i) {
+                final a = recentLogs[i];
                 return Column(
                   children: [
                     _ActivityRow(
-                      name: a.$1,
-                      desc: a.$2,
-                      time: a.$3,
-                      badge: a.$4,
-                      hasDot: a.$5,
+                      name: a.performedBy,
+                      desc: a.details,
+                      time: a.timestamp,
+                      badge: a.role,
+                      hasDot:
+                          a.action.toLowerCase().contains('update') ||
+                          a.action.toLowerCase().contains('alert'),
                     ),
-                    if (i < _items.length - 1)
+                    if (i < recentLogs.length - 1)
                       const Divider(height: 22, color: Color(0xFFF0F2F8)),
                   ],
                 );
@@ -1579,8 +1560,29 @@ class _LineChartPainter extends CustomPainter {
     );
     final tp = TextPainter(textDirection: TextDirection.ltr);
 
-    // Y grid
-    final yLabels = ['0', '0.5', '1', '1.5', '2'];
+    // Y grid mapping for Line Chart
+    final mapLine = <String, int>{};
+    for (var r in globalMasterReports) {
+      // Dummy date clustering logic for trends
+      mapLine[r.dateSubmitted.split(',')[0]] =
+          (mapLine[r.dateSubmitted.split(',')[0]] ?? 0) + 1;
+    }
+    var sortedLine = mapLine.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    if (sortedLine.isEmpty) sortedLine = [const MapEntry('None', 0)];
+    final xLabels = sortedLine.map((e) => e.key).toList();
+    final rawLineData = sortedLine.map((e) => e.value.toDouble()).toList();
+    final maxLine = rawLineData.isEmpty
+        ? 2.0
+        : (rawLineData.reduce((a, b) => a > b ? a : b) + 1);
+
+    final yLabels = [
+      0,
+      1,
+      2,
+      3,
+      4,
+    ].map((i) => ((maxLine / 4) * i).toStringAsFixed(1)).toList();
     for (int i = 0; i < yLabels.length; i++) {
       final y = bottom - (i * (bottom / (yLabels.length - 1)));
       if (i > 0) {
@@ -1598,15 +1600,6 @@ class _LineChartPainter extends CustomPainter {
     }
 
     // X grid + labels
-    final xLabels = [
-      'Feb 4',
-      'Feb 5',
-      'Feb 6',
-      'Feb 7',
-      'Feb 8',
-      'Feb 9',
-      'Feb 10',
-    ];
     final stepX = (size.width - xStart) / (xLabels.length - 1);
     for (int i = 0; i < xLabels.length; i++) {
       final x = xStart + i * stepX;
@@ -1621,10 +1614,12 @@ class _LineChartPainter extends CustomPainter {
     }
 
     // Data points + smooth curve
-    final data = [0.05, 1.0, 0.0, 0.0, 2.0, 0.95, 2.0];
     final points = List.generate(
-      data.length,
-      (i) => Offset(xStart + i * stepX, bottom - (data[i] / 2 * bottom)),
+      rawLineData.length,
+      (i) => Offset(
+        xStart + i * stepX,
+        bottom - ((rawLineData[i] / maxLine) * bottom),
+      ),
     );
 
     final path = Path()..moveTo(points[0].dx, points[0].dy);
@@ -1686,8 +1681,27 @@ class _BarChartPainter extends CustomPainter {
     );
     final tp = TextPainter(textDirection: TextDirection.ltr);
 
-    // Y grid
-    final yLabels = ['0', '0.5', '1', '1.5', '2'];
+    // Y grid and data for Bar Chart
+    final mapBar = <String, int>{};
+    for (var r in globalMasterReports) {
+      mapBar[r.city] = (mapBar[r.city] ?? 0) + 1;
+    }
+    var sortedBar = mapBar.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    if (sortedBar.isEmpty) sortedBar = [const MapEntry('None', 0)];
+    final xLabels = sortedBar.take(3).map((e) => e.key).toList();
+    final data = sortedBar.take(3).map((e) => e.value.toDouble()).toList();
+    final maxBar = data.isEmpty
+        ? 2.0
+        : (data.reduce((a, b) => a > b ? a : b) + 1);
+
+    final yLabels = [
+      0,
+      1,
+      2,
+      3,
+      4,
+    ].map((i) => ((maxBar / 4) * i).toStringAsFixed(1)).toList();
     for (int i = 0; i < yLabels.length; i++) {
       final y = bottom - (i * (bottom / (yLabels.length - 1)));
       if (i > 0) {
@@ -1709,14 +1723,12 @@ class _BarChartPainter extends CustomPainter {
     );
 
     // Bars
-    final xLabels = ['Calamba', 'Batangas City', 'Lucena'];
-    final data = [1.5, 1.0, 0.55];
     final stepX = (size.width - xStart) / xLabels.length;
     const barW = 100.0;
 
     for (int i = 0; i < xLabels.length; i++) {
       final cx = xStart + i * stepX + stepX / 2;
-      final bh = (data[i] / 2) * bottom;
+      final bh = (data[i] / maxBar) * bottom;
       canvas.drawRRect(
         RRect.fromRectAndCorners(
           Rect.fromLTRB(cx - barW / 2, bottom - bh, cx + barW / 2, bottom),

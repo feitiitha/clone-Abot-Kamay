@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'admin-settings.dart';
+import 'admin-logs_monitoring.dart';
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 class DC {
@@ -220,6 +221,13 @@ class _ContentManagementBodyState extends State<ContentManagementBody> {
             ),
           );
         });
+        addSystemLog(
+          'Super Admin',
+          'Admin',
+          'Created Content',
+          'ARTT-${(_masterContent.length).toString().padLeft(3, '0')}',
+          'Created a new $type content: $title',
+        );
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -273,6 +281,13 @@ class _ContentManagementBodyState extends State<ContentManagementBody> {
           r.status = status;
           r.content = contentDesc;
         });
+        addSystemLog(
+          'Super Admin',
+          'Admin',
+          'Updated Content',
+          r.id,
+          'Updated details for ${r.id} ($status)',
+        );
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
