@@ -97,7 +97,7 @@ class _Sidebar extends StatelessWidget {
             child: Image.asset(
               'assets/images/main-logo.png',
               height: 48,
-              errorBuilder: (_, __, ___) => Row(
+              errorBuilder: (_, _, _) => Row(
                 children: [
                   Container(
                     width: 36,
@@ -295,7 +295,7 @@ class _SidebarItemState extends State<_SidebarItem> {
                 child: Image.asset(
                   widget.iconPath,
                   color: isActive ? DC.primary : DC.textMid,
-                  errorBuilder: (_, __, ___) => Icon(
+                  errorBuilder: (_, _, _) => Icon(
                     widget.fallback,
                     size: 20,
                     color: isActive ? DC.primary : DC.textMid,
@@ -650,7 +650,7 @@ class _AnimatedStatCardState extends State<_AnimatedStatCard>
             const SizedBox(height: 14),
             AnimatedBuilder(
               animation: _anim,
-              builder: (_, __) => Text(
+              builder: (_, _) => Text(
                 _fmt(_anim.value * widget.targetValue),
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 30,
@@ -780,7 +780,7 @@ class _DensityMapCard extends StatelessWidget {
                     child: Image.asset(
                       'assets/images/density-map.png',
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
+                      errorBuilder: (_, _, _) => Container(
                         color: const Color(0xFFE8EDFF),
                         child: Center(
                           child: Icon(

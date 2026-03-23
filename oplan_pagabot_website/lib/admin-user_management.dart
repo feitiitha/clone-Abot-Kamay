@@ -148,8 +148,8 @@ class UserManagementBody extends StatefulWidget {
 class _UserManagementBodyState extends State<UserManagementBody> {
   final _searchCtrl = TextEditingController();
   String _searchQuery = '';
-  String _sortField = 'id';
-  bool _sortAsc = true;
+  final String _sortField = 'id';
+  final bool _sortAsc = true;
 
   @override
   void dispose() {
@@ -1374,7 +1374,7 @@ class _StatCard extends StatelessWidget {
               child: Image.asset(
                 iconAsset,
                 color: iconColor,
-                errorBuilder: (_, __, ___) =>
+                errorBuilder: (_, _, _) =>
                     Icon(fallback, size: 17, color: iconColor),
               ),
             ),

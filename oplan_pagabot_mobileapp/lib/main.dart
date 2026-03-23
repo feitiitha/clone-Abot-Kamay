@@ -67,7 +67,7 @@ class _LoginPageState extends State<LoginPage> {
           final userProfile = await Supabase.instance.client
               .from('users')
               .select()
-              .eq('id', user.id)
+              .eq('user_id', user.id)
               .maybeSingle();
 
           if (userProfile == null) {

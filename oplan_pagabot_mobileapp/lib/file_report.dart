@@ -325,7 +325,7 @@ class _FileReportPageState extends State<FileReportPage> {
                   ],
                 ),
               );
-            }).toList(),
+            }),
 
             const SizedBox(height: 10),
 

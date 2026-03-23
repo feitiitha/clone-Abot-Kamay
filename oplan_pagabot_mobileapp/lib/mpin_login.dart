@@ -51,16 +51,16 @@ class _MPINScreenState extends State<MPINScreen> {
         final response = await Supabase.instance.client
             .from('users')
             .select('mpin')
-            .eq('id', user.id)
+            .eq('user_id', user.id)
             .maybeSingle();
 
         if (response == null) {
           throw "User record not found in database.";
         }
 
-        final storedMpin = response['mpin'] as String?;
+        final storedMpin = response['mpin']?.toString();
 
-        if (enteredPin == storedMpin) {
+        if (int.tryParse(enteredPin) == int.tryParse(storedMpin ?? '')) {
           // SUCCESS: Tugma ang PIN
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(

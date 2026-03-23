@@ -68,7 +68,7 @@ class SubmittedReportsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     // --- SUPABASE STREAM ALIGNED TO YOUR SCHEMA ---
     // Ginagamit ang 'id' bilang primary key base sa iyong SQL
-    final Stream<List<Map<String, dynamic>>> _reportsStream = Supabase
+    final Stream<List<Map<String, dynamic>>> reportsStream = Supabase
         .instance
         .client
         .from('reports')
@@ -122,7 +122,7 @@ class SubmittedReportsPage extends StatelessWidget {
           // --- REALTIME REPORTS LIST ---
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(
-              stream: _reportsStream,
+              stream: reportsStream,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return Center(child: Text("Error: ${snapshot.error}"));

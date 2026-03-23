@@ -107,8 +107,8 @@ class ContentManagementBody extends StatefulWidget {
 class _ContentManagementBodyState extends State<ContentManagementBody> {
   final _searchCtrl = TextEditingController();
   String _searchQuery = '';
-  String _sortField = 'id';
-  bool _sortAsc = true;
+  final String _sortField = 'id';
+  final bool _sortAsc = true;
 
   @override
   void dispose() {

@@ -142,7 +142,7 @@ class _Navbar extends StatelessWidget implements PreferredSizeWidget {
             Image.asset(
               'assets/images/main-logo.png',
               height: 44,
-              errorBuilder: (_, __, ___) => Row(
+              errorBuilder: (_, _, _) => Row(
                 children: [
                   Container(
                     width: 44,
@@ -426,7 +426,7 @@ class _HeroImageCard extends StatelessWidget {
             child: Image.asset(
               'assets/images/IMG-main-oplan_landing page.png',
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
+              errorBuilder: (_, _, _) => Container(
                 height: 380,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(24),
@@ -1083,7 +1083,7 @@ class _Footer extends StatelessWidget {
                     Image.asset(
                       'assets/images/main-logo.png',
                       height: 44,
-                      errorBuilder: (_, __, ___) => Text(
+                      errorBuilder: (_, _, _) => Text(
                         'DSWD',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 26,
@@ -1170,7 +1170,7 @@ class _Footer extends StatelessWidget {
                 Image.asset(
                   'assets/images/main-logo.png',
                   height: 44,
-                  errorBuilder: (_, __, ___) => Text(
+                  errorBuilder: (_, _, _) => Text(
                     'DSWD',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 24,

@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'address_data.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -11,7 +15,6 @@ class SignupPage extends StatefulWidget {
 }
 
 class _SignupPageState extends State<SignupPage> {
-
   final supabase = Supabase.instance.client;
 
   final _formKey = GlobalKey<FormState>();
@@ -19,7 +22,9 @@ class _SignupPageState extends State<SignupPage> {
   final TextEditingController _mNameCtrl = TextEditingController();
   final TextEditingController _lNameCtrl = TextEditingController();
   final TextEditingController _emailCtrl = TextEditingController();
-  final TextEditingController _addressCtrl = TextEditingController();
+  final TextEditingController _houseCtrl = TextEditingController();
+  final TextEditingController _streetCtrl = TextEditingController();
+  final TextEditingController _zipCtrl = TextEditingController();
   final TextEditingController _idNumCtrl = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
@@ -30,6 +35,11 @@ class _SignupPageState extends State<SignupPage> {
   final List<TextEditingController> _confirmMpinControllers =
       List.generate(4, (i) => TextEditingController());
 
+  final List<TextEditingController> _otpControllers =
+      List.generate(6, (i) => TextEditingController());
+  int _otpTimer = 120;
+  Timer? _otpTimerObj;
+
   DateTime? _selectedDate;
   int _currentStep = 1;
   bool _noMiddleName = false;
@@ -38,72 +48,144 @@ class _SignupPageState extends State<SignupPage> {
   bool _agreedToTerms = false;
   bool _isLoading = false;
   File? _selectedIDFile;
+  File? _selectedSelfieFile;
   final ImagePicker _picker = ImagePicker();
-  String _selectedSuffix = "N/A";
+  
+  CameraController? _cameraController;
+  List<CameraDescription>? _cameras;
+  bool _isCameraInitialized = false;
+  bool _isInitializingCamera = false;
+
+  void _setStep(int step) {
+    if (_currentStep == 4 && step != 4) {
+      _cameraController?.dispose();
+      _cameraController = null;
+      _isCameraInitialized = false;
+      _isInitializingCamera = false;
+    }
+    setState(() {
+      _currentStep = step;
+    });
+  }
+
+  void _startOtpTimer() {
+    setState(() => _otpTimer = 120);
+    _otpTimerObj?.cancel();
+    _otpTimerObj = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_otpTimer > 0) {
+        setState(() => _otpTimer--);
+      } else {
+        _otpTimerObj?.cancel();
+      }
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  Future<void> _initializeCamera() async {
+    setState(() => _isInitializingCamera = true);
+    try {
+      _cameras = await availableCameras();
+      if (_cameras != null && _cameras!.isNotEmpty) {
+        final frontCamera = _cameras!.firstWhere(
+          (camera) => camera.lensDirection == CameraLensDirection.front,
+          orElse: () => _cameras!.first,
+        );
+        _cameraController = CameraController(
+          frontCamera,
+          ResolutionPreset.medium,
+          enableAudio: false,
+        );
+        await _cameraController!.initialize();
+        if (mounted) {
+          setState(() {
+            _isCameraInitialized = true;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Camera config failed: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isInitializingCamera = false);
+      }
+    }
+  }
+
+  String _selectedSuffix = "Select";
   String _selectedSex = "Select";
-  String _selectedNationality = "Filipino";
-  String _selectedIDType = "UMID";
+  String _selectedCitizenship = "Select your citizenship";
+  String? _selectedRegion;
+  String? _selectedProvince;
+  String? _selectedCity;
+  String _selectedBarangay = "Select your barangay";
+  String _selectedIDType = "Choose valid ID to upload";
+
   final Color primaryBlue = const Color(0xFF2E3192);
   final Color strokeColor = Colors.grey.shade300;
 
-  bool get _hasMaxLength => _passwordController.text.length >= 8;
-  bool get _hasUppercase =>
-      _passwordController.text.contains(RegExp(r'[A-Z]'));
-  bool get _hasLowercase =>
-      _passwordController.text.contains(RegExp(r'[a-z]'));
-  bool get _hasNumber =>
-      _passwordController.text.contains(RegExp(r'[0-9]'));
-  bool get _hasSpecialChar => _passwordController.text
-      .contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
-  bool get _passwordsMatch =>
-      _passwordController.text == _confirmPasswordController.text &&
-      _passwordController.text.isNotEmpty;
+  final List<String> _citizenships = ["Select your citizenship", "Filipino", "Dual Citizen", "Foreign National"];
+  List<String> _barangays = ["Select your barangay"]; 
+  final List<String> _idTypes = ["Choose valid ID to upload", "UMID", "Passport", "Driver's License", "PhilSys (National ID)", "PRC ID", "Postal ID", "Voter's ID", "SSS ID", "Pag-IBIG ID", "PhilHealth ID", "TIN ID", "Senior Citizen ID", "PWD ID"];
 
-  // ===========================
-  // SUPABASE REGISTER FUNCTION
-  // ===========================
+  bool get _hasMaxLength => _passwordController.text.length >= 8;
+  bool get _hasUppercase => _passwordController.text.contains(RegExp(r'[A-Z]'));
+  bool get _hasLowercase => _passwordController.text.contains(RegExp(r'[a-z]'));
+  bool get _hasNumber => _passwordController.text.contains(RegExp(r'[0-9]'));
+  bool get _hasSpecialChar => _passwordController.text.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
+  bool get _passwordsMatch => _passwordController.text == _confirmPasswordController.text && _passwordController.text.isNotEmpty;
+
   Future<void> _registerUser() async {
     setState(() => _isLoading = true);
 
     try {
-      // 1️⃣ Create user in Supabase Auth
-      final AuthResponse res = await supabase.auth.signUp(
-        email: _emailCtrl.text.trim(),
-        password: _passwordController.text.trim(),
+      final UserResponse res = await supabase.auth.updateUser(
+        UserAttributes(password: _passwordController.text.trim()),
       );
 
       final user = res.user;
 
       if (user == null) {
-        throw Exception("Signup failed.");
+        throw Exception("Signup failed or session expired.");
       }
 
-      // 2️⃣ Combine MPIN
-      String finalMpin =
-          _mpinControllers.map((e) => e.text).join();
+      String finalMpin = _mpinControllers.map((e) => e.text).join();
 
-      // 3️⃣ Insert into Supabase table
+      String formattedDate = _selectedDate != null 
+          ? "${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}"
+          : _dobCtrl.text;
+
+      String region = (_selectedRegion == null || _selectedRegion!.contains("Select")) ? "" : _selectedRegion!;
+      String province = (_selectedProvince == null || _selectedProvince!.contains("Select")) ? "" : _selectedProvince!;
+      String city = (_selectedCity == null || _selectedCity!.contains("Select")) ? "" : _selectedCity!;
+      String suffix = (_selectedSuffix == "Select") ? "" : _selectedSuffix;
+
       await supabase.from('users').insert({
-        'id': user.id,
-        'firstname': _fNameCtrl.text.trim(),
-        'middlename':
-            _noMiddleName ? "" : _mNameCtrl.text.trim(),
-        'lastname': _lNameCtrl.text.trim(),
-        'suffix': _selectedSuffix,
+        'first_name': _fNameCtrl.text.trim(),
+        'middle_name': _noMiddleName ? "" : _mNameCtrl.text.trim(),
+        'last_name': _lNameCtrl.text.trim(),
+        'suffix': suffix,
         'sex': _selectedSex,
-        'birthday': _dobCtrl.text,
-        'email': _emailCtrl.text.trim(),
-        'address': _addressCtrl.text.trim(),
-        'idnumber': _idNumCtrl.text.trim(),
-        'nationality': _selectedNationality,
-        'idtype': _selectedIDType,
+        'birthday': formattedDate,
+        'email_address': _emailCtrl.text.trim(),
+        'house_no': _houseCtrl.text.trim(),
+        'street_name': _streetCtrl.text.trim(),
+        'city': city,
+        'province': province,
+        'region': region,
+        'postal_code': _zipCtrl.text.trim(),
+        'id_number': _idNumCtrl.text.trim(),
+        'citizenship': _selectedCitizenship,
+        'government_id': _selectedIDType,
+        'password': _passwordController.text.trim(),
         'mpin': finalMpin,
-        'isverified': false,
-        'createdat': DateTime.now().toIso8601String(),
       });
 
       setState(() {
-        _currentStep = 7;
+        _currentStep = 8;
         _isLoading = false;
       });
 
@@ -131,11 +213,18 @@ class _SignupPageState extends State<SignupPage> {
     }
   }
 
-  // ===========================
-  // REST OF YOUR CODE
-  // ===========================
-
-  // --- FIREBASE LOGIC END ---
+  Future<void> _takeSelfie() async {
+    if (_cameraController != null && _cameraController!.value.isInitialized) {
+      try {
+        final XFile file = await _cameraController!.takePicture();
+        setState(() {
+          _selectedSelfieFile = File(file.path);
+        });
+      } catch (e) {
+        debugPrint("Error taking selfie: $e");
+      }
+    }
+  }
 
   Future<void> _pickIDImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
@@ -249,15 +338,22 @@ class _SignupPageState extends State<SignupPage> {
 
   @override
   void dispose() {
+    _otpTimerObj?.cancel();
+    _cameraController?.dispose();
     _fNameCtrl.dispose();
     _mNameCtrl.dispose();
     _lNameCtrl.dispose();
     _emailCtrl.dispose();
-    _addressCtrl.dispose();
+    _houseCtrl.dispose();
+    _streetCtrl.dispose();
+    _zipCtrl.dispose();
     _idNumCtrl.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _dobCtrl.dispose();
+    for (var controller in _otpControllers) {
+      controller.dispose();
+    }
     for (var controller in _mpinControllers) {
       controller.dispose();
     }
@@ -271,7 +367,7 @@ class _SignupPageState extends State<SignupPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: _currentStep == 7 ? null : AppBar(
+      appBar: _currentStep == 8 ? null : AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: Padding(
@@ -280,7 +376,7 @@ class _SignupPageState extends State<SignupPage> {
             icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 20),
             onPressed: () {
               if (_currentStep > 1) {
-                setState(() => _currentStep--);
+                _setStep(_currentStep - 1);
               } else {
                 Navigator.pop(context);
               }
@@ -294,14 +390,14 @@ class _SignupPageState extends State<SignupPage> {
             SingleChildScrollView(
               padding: EdgeInsets.symmetric(
                 horizontal: 50.0, 
-                vertical: _currentStep == 7 ? 0 : 10.0
+                vertical: _currentStep == 8 ? 0 : 10.0
               ),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (_currentStep <= 4) ...[
+                    if ((_currentStep <= 4 || _currentStep == 6) && _currentStep != 2) ...[
                       Center(
                         child: Image.asset(
                           'assets/DSWD.png',
@@ -322,29 +418,90 @@ class _SignupPageState extends State<SignupPage> {
                       const SizedBox(height: 20),
                     ],
 
-                    if (_currentStep == 5 || _currentStep == 6) const SizedBox(height: 80),
+                    if (_currentStep == 6 || _currentStep == 7 || _currentStep == 2) const SizedBox(height: 80),
 
-                    if (_currentStep <= 6) ...[
+                    if (_currentStep <= 7) ...[
                       _buildStepIndicator(),
                       const SizedBox(height: 30),
                     ],
 
                     _buildCurrentStepContent(),
 
-                    if (_currentStep < 7) ...[
+                    if (_currentStep < 8) ...[
                        const SizedBox(height: 40),
                        ElevatedButton(
-                        onPressed: _isLoading ? null : () {
+                        onPressed: _isLoading ? null : () async {
                           if (_formKey.currentState!.validate()) {
-                            if (_currentStep == 1 && _selectedSex == "Select") {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please select gender")));
+                            if (_currentStep == 1) {
+                              if (_selectedSex == "Select") {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please select gender")));
+                                return;
+                              }
+                              setState(() => _isLoading = true);
+                              try {
+                                await supabase.auth.signInWithOtp(email: _emailCtrl.text.trim());
+                                _startOtpTimer();
+                                setState(() {
+                                  _isLoading = false;
+                                  _setStep(2);
+                                });
+                              } catch (e) {
+                                setState(() => _isLoading = false);
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to send OTP: $e")));
+                              }
                               return;
                             }
-                            if (_currentStep == 2 && _selectedIDFile == null) {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please upload your Government ID")));
+                            if (_currentStep == 2) {
+                              String otpToken = _otpControllers.map((e) => e.text).join();
+                              if (otpToken.length < 6) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please complete the OTP")));
+                                return;
+                              }
+                              setState(() => _isLoading = true);
+                              try {
+                                final AuthResponse res = await supabase.auth.verifyOTP(
+                                  type: OtpType.magiclink,
+                                  token: otpToken,
+                                  email: _emailCtrl.text.trim(),
+                                );
+                                if (res.session != null) {
+                                  setState(() {
+                                    _isLoading = false;
+                                    _setStep(3);
+                                  });
+                                } else {
+                                  throw Exception("Invalid OTP.");
+                                }
+                              } catch (e) {
+                                setState(() => _isLoading = false);
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+                              }
                               return;
                             }
-                            if (_currentStep == 4) {
+                            if (_currentStep == 3) {
+                              if (_selectedCitizenship == "Select your citizenship") {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please select your citizenship")));
+                                return;
+                              }
+                              if (_selectedIDType == "Choose valid ID to upload") {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please select a valid ID type")));
+                                return;
+                              }
+                              if (_selectedIDFile == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please upload your Government ID")));
+                                return;
+                              }
+                            }
+                            if (_currentStep == 4 && _selectedSelfieFile == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please take a selfie")));
+                              return;
+                            }
+                            
+                            if (_currentStep == 6) {
+                              if (_passwordController.text.length < 6) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Supabase requires at least 6 characters for a password.")));
+                                return;
+                              }
                               if (!_passwordsMatch) {
                                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Passwords do not match")));
                                 return;
@@ -355,7 +512,7 @@ class _SignupPageState extends State<SignupPage> {
                               }
                             }
                             
-                            if (_currentStep == 6) {
+                            if (_currentStep == 7) {
                               String mpin = _mpinControllers.map((e) => e.text).join();
                               String confirmMpin = _confirmMpinControllers.map((e) => e.text).join();
                               
@@ -368,12 +525,12 @@ class _SignupPageState extends State<SignupPage> {
                                 return;
                               }
                               
-                              // TRIGGER FIREBASE SAVE
+                              // TRIGGER SUPABASE SAVE
                               _registerUser();
                               return;
                             }
 
-                            setState(() => _currentStep++);
+                            _setStep(_currentStep + 1);
                           }
                         },
                         style: ElevatedButton.styleFrom(
@@ -386,7 +543,7 @@ class _SignupPageState extends State<SignupPage> {
                         child: _isLoading 
                           ? const CircularProgressIndicator(color: Colors.white)
                           : Text(
-                              _currentStep >= 5 ? "Continue" : "Next",
+                              (_currentStep == 2 || _currentStep == 7) ? "Continue" : "Next",
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 18,
@@ -415,6 +572,7 @@ class _SignupPageState extends State<SignupPage> {
       case 5: return _buildStep5();
       case 6: return _buildStep6();
       case 7: return _buildStep7();
+      case 8: return _buildStep8();
       default: return _buildStep1();
     }
   }
@@ -423,6 +581,8 @@ class _SignupPageState extends State<SignupPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const Text("Personal Details", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 10),
         _buildLabel("First Name"),
         _buildTextField(_fNameCtrl, "Enter first name", Icons.person_outline,
             validator: (v) => v!.isEmpty ? "Required" : null),
@@ -458,14 +618,14 @@ class _SignupPageState extends State<SignupPage> {
                 children: [
                   _buildLabel("Suffix"),
                   _buildDropdown(
-                      Icons.badge_outlined,
+                      null,
                       [
-                        "N/A", "Jr.", "Sr.", "I", "II", "III", "IV", "V", "VI",
+                        "Select", "N/A", "Jr.", "Sr.", "I", "II", "III", "IV", "V", "VI",
                         "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV",
                         "XV", "XVI", "XVII", "XVIII", "XIX", "XX"
                       ],
                       _selectedSuffix,
-                      (v) => setState(() => _selectedSuffix = v!)),
+                      (v) => setState(() => _selectedSuffix = v ?? "Select")),
                 ],
               ),
             ),
@@ -476,24 +636,24 @@ class _SignupPageState extends State<SignupPage> {
                 children: [
                   _buildLabel("Sex"),
                   _buildDropdown(
-                      Icons.wc,
+                      null,
                       ["Select", "Male", "Female"],
                       _selectedSex,
-                      (v) => setState(() => _selectedSex = v!)),
+                      (v) => setState(() => _selectedSex = v ?? "Select")),
                 ],
               ),
             ),
           ],
         ),
         const SizedBox(height: 16),
-        _buildLabel("Birthday"),
+        _buildLabel("Date of birth"),
         GestureDetector(
           onTap: () async {
             DateTime? pickedDate = await showDatePicker(
               context: context,
-              initialDate: DateTime(2000), 
+              initialDate: DateTime(DateTime.now().year - 18, DateTime.now().month, DateTime.now().day), 
               firstDate: DateTime(1900),  
-              lastDate: DateTime.now(),    
+              lastDate: DateTime(DateTime.now().year - 18, DateTime.now().month, DateTime.now().day),    
               builder: (context, child) {
                 return Theme(
                   data: Theme.of(context).copyWith(
@@ -518,59 +678,308 @@ class _SignupPageState extends State<SignupPage> {
           child: AbsorbPointer(
             child: _buildTextField(
               _dobCtrl,
-              "Select your birthdate",
+              "Birthdate",
               Icons.calendar_month_outlined,
               validator: (v) => v!.isEmpty ? "Required" : null,
             ),
           ),
         ),
-      ],
-    );
-  }
-
-  Widget _buildStep2() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+        const SizedBox(height: 16),
         _buildLabel("Email Address"),
         _buildTextField(_emailCtrl, "Enter email", Icons.email_outlined,
             validator: (v) => !v!.contains("@")
                 ? "Please enter a valid email"
                 : null),
-        const SizedBox(height: 16),
-        _buildLabel("Home Address"),
-        _buildTextField(_addressCtrl, "Enter home address", Icons.home_outlined, validator: (v) => v!.isEmpty ? "Required" : null),
-        const SizedBox(height: 16),
-        _buildLabel("ID Number"),
-        _buildTextField(_idNumCtrl, "Enter ID number", Icons.badge_outlined, validator: (v) => v!.isEmpty ? "Required" : null),
-        const SizedBox(height: 16),
-        _buildLabel("Nationality"),
-        _buildDropdown(Icons.flag_outlined, ["Filipino", "Foreign National"], _selectedNationality, (v) => setState(() => _selectedNationality = v!)),
-        const SizedBox(height: 16),
-        _buildLabel("Type of Government ID"),
-        _buildDropdown(Icons.assignment_ind_outlined, ["UMID", "Passport", "Driver's License", "PhilSys (National ID)", "PRC ID", "Postal ID", "Voter's ID", "SSS ID", "Pag-IBIG ID", "PhilHealth ID", "TIN ID", "Senior Citizen ID", "PWD ID"], _selectedIDType, (v) => setState(() => _selectedIDType = v!)),
-        const SizedBox(height: 25),
-        GestureDetector(
-          onTap: _pickIDImage,
-          child: _buildUploadBox(_selectedIDFile == null ? "Upload a photo/s" : "ID Uploaded: ${_selectedIDFile!.path.split('/').last}"),
-        ),
+      ],
+    );
+  }
+
+  Widget _buildStep2() {
+    String maskedEmail = _emailCtrl.text.isNotEmpty && _emailCtrl.text.contains('@')
+      ? "${_emailCtrl.text.substring(0, _emailCtrl.text.indexOf('@') > 5 ? 5 : 1)}*****${_emailCtrl.text.substring(_emailCtrl.text.indexOf('@'))}"
+      : '*****@gmail.com';
+    String minutes = (_otpTimer ~/ 60).toString().padLeft(2, '0');
+    String seconds = (_otpTimer % 60).toString().padLeft(2, '0');
+
+    return Column(
+      children: [
+        const Text("OTP Verification", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Text("We've sent you the verification code\non $maskedEmail", textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+        const SizedBox(height: 40),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: List.generate(6, (i) => _buildOtpBox(_otpControllers[i], i))),
+        const SizedBox(height: 30),
+        _otpTimer > 0 
+          ? Text("Re-send code in $minutes:$seconds", style: const TextStyle(color: Colors.black))
+          : TextButton(
+              onPressed: () async {
+                setState(() => _isLoading = true);
+                try {
+                  await supabase.auth.signInWithOtp(email: _emailCtrl.text.trim());
+                  _startOtpTimer();
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("OTP Resent!")));
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to resend: $e")));
+                } finally {
+                  setState(() => _isLoading = false);
+                }
+              },
+              child: const Text("Resend Code", style: TextStyle(color: Colors.blue)),
+            ),
       ],
     );
   }
 
   Widget _buildStep3() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 20),
-        _buildPlainUploadBox("Take a Selfie", height: 280),
+        const Text("Current Address", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 10),
+        const SizedBox(height: 10),
+        _buildLabel("Region"),
+        _buildDropdown(null, AddressData.regionProvinces.keys.toList()..insert(0, "Select your region"), _selectedRegion ?? "Select your region", (v) {
+          setState(() {
+            _selectedRegion = v;
+            _selectedProvince = null;
+            _selectedCity = null;
+            _selectedBarangay = "Select your barangay";
+            _barangays = ["Select your barangay"];
+          });
+        }),
+        const SizedBox(height: 16),
+        _buildLabel("Province"),
+        _buildDropdown(null, (_selectedRegion != null && _selectedRegion != "Select your region" && AddressData.regionProvinces.containsKey(_selectedRegion)) ? (AddressData.regionProvinces[_selectedRegion]!.toList()..insert(0, "Select your province")) : ["Select your province"], _selectedProvince ?? "Select your province", (v) {
+          setState(() {
+            _selectedProvince = v;
+            _selectedCity = null;
+            _selectedBarangay = "Select your barangay";
+            _barangays = ["Select your barangay"];
+          });
+        }),
+        const SizedBox(height: 16),
+        _buildLabel("City/ Municipality"),
+        _buildDropdown(null, (_selectedProvince != null && _selectedProvince != "Select your province" && AddressData.provinceCities.containsKey(_selectedProvince)) ? (AddressData.provinceCities[_selectedProvince]!.toList()..insert(0, "Select your city / municipality")) : ["Select your city / municipality"], _selectedCity ?? "Select your city / municipality", (v) {
+          setState(() {
+            _selectedCity = v;
+            _selectedBarangay = "Select your barangay";
+            if (v != null && AddressData.cityBarangays.containsKey(v)) {
+              _barangays = AddressData.cityBarangays[v]!.toList()..insert(0, "Select your barangay");
+            } else {
+              _barangays = ["Select your barangay"];
+            }
+          });
+        }),
+        const SizedBox(height: 16),
+        _buildLabel("Barangay"),
+        _buildDropdown(null, _barangays.isNotEmpty ? _barangays : ["Select your barangay"], _selectedBarangay, (v) => setState(() => _selectedBarangay = v!)),
+        const SizedBox(height: 16),
+        _buildLabel("House / Unit / Bldg No."),
+        _buildTextField(_houseCtrl, "Enter your House / Unit / Bldg No.", Icons.home_outlined, validator: (v) => v!.isEmpty ? "Required" : null),
+        const SizedBox(height: 16),
+        _buildLabel("Street / Area Name"),
+        _buildTextField(_streetCtrl, "Enter your Street / Area Name", Icons.map_outlined, validator: (v) => v!.isEmpty ? "Required" : null),
+        const SizedBox(height: 16),
+        _buildLabel("ZIP / Postal Code"),
+        _buildTextField(_zipCtrl, "Enter your zip / postal code", Icons.location_city_outlined, validator: (v) => v!.isEmpty ? "Required" : null),
+        
+        const SizedBox(height: 30),
+        const Text("Identification", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 10),
+        _buildLabel("ID Number"),
+        _buildTextField(_idNumCtrl, "Enter ID number", Icons.badge_outlined, validator: (v) => v!.isEmpty ? "Required" : null),
+        const SizedBox(height: 16),
+        _buildLabel("Citizenship"),
+        _buildDropdown(null, _citizenships, _selectedCitizenship, (v) => setState(() => _selectedCitizenship = v!)),
+        const SizedBox(height: 16),
+        _buildLabel("Type of Government ID"),
+        _buildDropdown(null, _idTypes, _selectedIDType, (v) => setState(() => _selectedIDType = v!)),
+        const SizedBox(height: 25),
+        GestureDetector(
+          onTap: _pickIDImage,
+          child: _selectedIDFile == null
+              ? _buildUploadBox("Upload a photo/s")
+              : Container(
+                  height: 150, width: double.infinity,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: strokeColor),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: kIsWeb ? Image.network(_selectedIDFile!.path, fit: BoxFit.cover) : Image.file(_selectedIDFile!, fit: BoxFit.cover),
+                  ),
+                ),
+        ),
       ],
     );
   }
 
   Widget _buildStep4() {
     return Column(
+      children: [
+        const SizedBox(height: 20),
+        Container(
+          height: 280, width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: strokeColor, width: 1.5, style: _selectedSelfieFile == null ? BorderStyle.solid : BorderStyle.none),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 5, offset: const Offset(0, 2))],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Stack(
+              children: [
+                if (_isCameraInitialized && _cameraController != null)
+                  Positioned.fill(
+                    child: AspectRatio(
+                      aspectRatio: _cameraController!.value.aspectRatio > 0 ? _cameraController!.value.aspectRatio : 1,
+                      child: CameraPreview(_cameraController!),
+                    ),
+                  ),
+                if (!_isCameraInitialized)
+                  Positioned.fill(
+                    child: Center(child: Text(_isInitializingCamera ? "Initializing Camera..." : "Take a Selfie", style: const TextStyle(color: Colors.grey, fontSize: 16))),
+                  ),
+                if (_selectedSelfieFile != null)
+                  Positioned.fill(
+                    child: kIsWeb 
+                      ? Image.network(_selectedSelfieFile!.path, fit: BoxFit.cover) 
+                      : Image.file(_selectedSelfieFile!, fit: BoxFit.cover),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 30),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (_selectedSelfieFile != null)
+              TextButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _selectedSelfieFile = null;
+                  });
+                  if (_cameraController == null || !_isCameraInitialized) {
+                    _initializeCamera();
+                  } else {
+                    try {
+                      _cameraController?.resumePreview();
+                    } catch (e) {
+                      debugPrint("resumePreview error: $e");
+                    }
+                  }
+                },
+                icon: const Icon(Icons.refresh, color: Colors.grey),
+                label: const Text("Retake Selfie", style: TextStyle(color: Colors.grey)),
+              ),
+            if (_selectedSelfieFile == null)
+              GestureDetector(
+                onTap: () {
+                  if (!_isCameraInitialized && !_isInitializingCamera) {
+                    _initializeCamera();
+                  } else if (_isCameraInitialized) {
+                    _takeSelfie();
+                  }
+                },
+                child: Container(
+                  width: 60, height: 60,
+                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.grey, width: 1)),
+                  child: const Icon(Icons.camera_alt_outlined, color: Colors.grey, size: 30),
+                ),
+              ),
+          ],
+        )
+      ],
+    );
+  }
+
+  Widget _buildStep5() {
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const Text("Confirm Information", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
+          child: Row(
+            children: const [
+              Icon(Icons.info_outline, color: Colors.blue),
+              SizedBox(width: 8),
+              Expanded(child: Text("Please make sure the details are correct.", style: TextStyle(color: Colors.blue))),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        _buildConfirmSection("Personal Details", 1, {
+          "First Name": _fNameCtrl.text,
+          "Middle Name": _mNameCtrl.text,
+          "Last Name": _lNameCtrl.text,
+          "Suffix": _selectedSuffix,
+          "Sex": _selectedSex,
+          "Date of Birth": _dobCtrl.text,
+          "Email Address": _emailCtrl.text,
+        }),
+        _buildConfirmSection("Current Address", 3, {
+          "House / Unit / Bldg No.": _houseCtrl.text,
+          "Street / Area Name": _streetCtrl.text,
+          "Barangay": _selectedBarangay,
+          "City/ Municipality": _selectedCity ?? "",
+          "Province": _selectedProvince ?? "",
+          "Region": _selectedRegion ?? "",
+          "ZIP / Postal Code": _zipCtrl.text,
+        }),
+        _buildConfirmSection("Identification", 3, {
+          "ID Number": _idNumCtrl.text,
+          "Citizenship": _selectedCitizenship,
+          "Type of Government ID": _selectedIDType,
+        }),
+      ],
+    );
+  }
+
+  Widget _buildConfirmSection(String title, int targetStep, Map<String, String> data) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            InkWell(
+              onTap: () => _setStep(targetStep),
+              child: Row(
+                children: [
+                  Text("Edit Details", style: TextStyle(color: primaryBlue, fontSize: 12, fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 4),
+                  Icon(Icons.edit_outlined, color: primaryBlue, size: 14),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const Divider(),
+        ...data.entries.map((e) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(width: 140, child: Text(e.key, style: const TextStyle(color: Colors.grey, fontSize: 12))),
+              Expanded(child: Text(e.value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
+            ],
+          ),
+        )).toList(),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildStep6() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
         _buildLabel("Password"),
         _buildPasswordField(_passwordController, "Enter Password", _obscurePassword, () => setState(() => _obscurePassword = !_obscurePassword)),
         const SizedBox(height: 16),
@@ -611,20 +1020,7 @@ class _SignupPageState extends State<SignupPage> {
     );
   }
 
-  Widget _buildStep5() {
-    return Column(
-      children: [
-        const Text("OTP Verification", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const Text("Verification code sent to your email.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 13)),
-        const SizedBox(height: 40),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: List.generate(6, (i) => _buildPinField())),
-        const SizedBox(height: 30),
-        const Text("Re-send code in 2:00", style: TextStyle(color: Colors.grey)),
-      ],
-    );
-  }
-
-  Widget _buildStep6() {
+  Widget _buildStep7() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -640,7 +1036,7 @@ class _SignupPageState extends State<SignupPage> {
     );
   }
 
-  Widget _buildStep7() {
+  Widget _buildStep8() {
     return SizedBox(
       height: MediaQuery.of(context).size.height * 0.8, 
       child: Column(
@@ -757,7 +1153,7 @@ class _SignupPageState extends State<SignupPage> {
     child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
   );
 
-  Widget _buildTextField(TextEditingController ctrl, String hint, IconData icon, {bool enabled = true, String? Function(String?)? validator}) {
+  Widget _buildTextField(TextEditingController ctrl, String hint, IconData? icon, {bool enabled = true, String? Function(String?)? validator, IconData? suffixIcon}) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white, borderRadius: BorderRadius.circular(12),
@@ -768,7 +1164,9 @@ class _SignupPageState extends State<SignupPage> {
         enabled: enabled,
         validator: validator,
         decoration: InputDecoration(
-          hintText: hint, prefixIcon: Icon(icon, color: Colors.grey),
+          hintText: hint, 
+          prefixIcon: icon != null ? Icon(icon, color: Colors.grey) : null,
+          suffixIcon: suffixIcon != null ? Icon(suffixIcon, color: Colors.grey) : null,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: strokeColor)),
           enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: strokeColor)),
         ),
@@ -795,7 +1193,7 @@ class _SignupPageState extends State<SignupPage> {
     );
   }
 
-  Widget _buildDropdown(IconData icon, List<String> items, String current, Function(String?) onChange) {
+  Widget _buildDropdown(IconData? icon, List<String> items, String current, Function(String?) onChange) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
@@ -804,8 +1202,10 @@ class _SignupPageState extends State<SignupPage> {
       ),
       child: Row(
         children: [
-          Icon(icon, color: Colors.grey, size: 22),
-          const SizedBox(width: 8),
+          if (icon != null) ...[
+            Icon(icon, color: Colors.grey, size: 22),
+            const SizedBox(width: 8),
+          ],
           Expanded(
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
@@ -821,11 +1221,24 @@ class _SignupPageState extends State<SignupPage> {
     );
   }
 
-  Widget _buildPinField() {
+  Widget _buildOtpBox(TextEditingController ctrl, int index) {
     return Container(
       width: 45, height: 50,
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: strokeColor)),
-      child: const TextField(textAlign: TextAlign.center, maxLength: 1, keyboardType: TextInputType.number, decoration: InputDecoration(counterText: "", border: InputBorder.none)),
+      child: TextField(
+        controller: ctrl,
+        textAlign: TextAlign.center,
+        maxLength: 1,
+        keyboardType: TextInputType.number,
+        decoration: const InputDecoration(counterText: "", border: InputBorder.none),
+        onChanged: (value) {
+          if (value.length == 1 && index < 5) {
+            FocusScope.of(context).nextFocus();
+          } else if (value.isEmpty && index > 0) {
+            FocusScope.of(context).previousFocus();
+          }
+        },
+      ),
     );
   }
 
@@ -836,9 +1249,9 @@ class _SignupPageState extends State<SignupPage> {
 
   Widget _buildStepIndicator() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text("$_currentStep of 6", style: const TextStyle(fontWeight: FontWeight.bold)),
+      Text("$_currentStep of 7", style: const TextStyle(fontWeight: FontWeight.bold)),
       const SizedBox(height: 8),
-      Row(children: List.generate(6, (index) => Expanded(child: Container(height: 4, margin: const EdgeInsets.symmetric(horizontal: 2), decoration: BoxDecoration(color: index < _currentStep ? Colors.red : Colors.grey.shade300, borderRadius: BorderRadius.circular(5)))))),
+      Row(children: List.generate(7, (index) => Expanded(child: Container(height: 4, margin: const EdgeInsets.symmetric(horizontal: 2), decoration: BoxDecoration(color: index < _currentStep ? Colors.red : Colors.grey.shade300, borderRadius: BorderRadius.circular(5)))))),
     ]);
   }
 }

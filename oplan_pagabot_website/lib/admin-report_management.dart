@@ -464,8 +464,8 @@ class _ReportManagementBodyState extends State<ReportManagementBody> {
                     ),
                     child: Text(
                       [
-                        if (_filterStatus != null) _filterStatus!,
-                        if (_filterVuln != null) _filterVuln!,
+                        ?_filterStatus,
+                        ?_filterVuln,
                       ].join(' · '),
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 11.5,
@@ -1887,7 +1887,7 @@ class _IconBtnState extends State<_IconBtn> {
               width: 18,
               height: 18,
               color: _hover ? DC.primary : DC.textMid,
-              errorBuilder: (_, __, ___) => Icon(
+              errorBuilder: (_, _, _) => Icon(
                 widget.fallback,
                 size: 18,
                 color: _hover ? DC.primary : DC.textMid,
@@ -2008,7 +2008,7 @@ class _StatCard extends StatelessWidget {
               child: Image.asset(
                 iconAsset,
                 color: iconColor,
-                errorBuilder: (_, __, ___) =>
+                errorBuilder: (_, _, _) =>
                     Icon(fallback, size: 17, color: iconColor),
               ),
             ),

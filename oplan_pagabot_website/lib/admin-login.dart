@@ -161,7 +161,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
           Image.asset(
             'assets/images/main-logo.png',
             height: 38,
-            errorBuilder: (_, __, ___) => Text(
+            errorBuilder: (_, _, _) => Text(
               'DSWD',
               style: GoogleFonts.plusJakartaSans(
                 fontWeight: FontWeight.w900,
@@ -192,7 +192,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                           slide['image']!,
                           width: double.infinity,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
+                          errorBuilder: (_, _, _) => Container(
                             decoration: BoxDecoration(
                               color: const Color(0xFFEEF0FF),
                               borderRadius: BorderRadius.circular(14),
@@ -477,7 +477,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
               width: 18,
               height: 18,
               color: Colors.grey[500],
-              errorBuilder: (_, __, ___) =>
+              errorBuilder: (_, _, _) =>
                   Icon(fallbackIcon, size: 18, color: Colors.grey[500]),
             ),
           ),
