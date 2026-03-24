@@ -59,7 +59,26 @@ class _LoginPageState extends State<LoginPage> {
           password: _passwordController.text.trim(),
         );
 
-        if (response.user != null) {
+        final user = response.user;
+
+        if (user != null) {
+          // 2. Data Alignment Check (public.users)
+          // We verify that the corresponding profile exists in your 'users' table
+          // This ensures the login is "connected" to the signup data.
+          final userProfile = await Supabase.instance.client
+              .from('users')
+              .select()
+              .eq('email_address', user.email!)
+              .maybeSingle();
+
+          if (userProfile == null) {
+            // Case: User is in Auth but not in public.users
+            throw const AuthException(
+              "Login failed: Profile not found in database. Please sign up again.",
+            );
+          }
+
+          // If successful and aligned, navigate
           if (mounted) {
             Navigator.pushReplacement(
               context,

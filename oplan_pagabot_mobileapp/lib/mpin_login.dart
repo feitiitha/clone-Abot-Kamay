@@ -57,7 +57,21 @@ class _MPINScreenState extends State<MPINScreen> {
             ),
           );
 
-          await Future.delayed(const Duration(milliseconds: 500));
+        // Fetch MPIN data directly from the 'users' table
+        final response = await Supabase.instance.client
+            .from('users')
+            .select('mpin')
+            .eq('email_address', user.email!)
+            .maybeSingle();
+
+        if (response == null) {
+          throw "User record not found in database.";
+        }
+
+        final storedMpin = response['mpin']?.toString();
+
+        if (int.tryParse(enteredPin) == int.tryParse(storedMpin ?? '')) {
+          // SUCCESS: Tugma ang PIN
           if (mounted) {
             Navigator.pushAndRemoveUntil(
               context,
