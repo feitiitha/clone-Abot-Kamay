@@ -44,18 +44,9 @@ class _MPINScreenState extends State<MPINScreen> {
         // Kunin ang kasalukuyang user na naka-login
         final user = Supabase.instance.client.auth.currentUser;
         
-        // Kunin ang MPIN na sinave natin sa metadata nung Signup
-        final storedMpin = user?.userMetadata?['mpin'];
-
-        if (enteredPin == storedMpin) {
-          // SUCCESS: Tugma ang PIN sa database
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Login Successfully'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 1),
-            ),
-          );
+        if (user == null || user.email == null) {
+          throw "User not logged in or email not available.";
+        }
 
         // Fetch MPIN data directly from the 'users' table
         final response = await Supabase.instance.client

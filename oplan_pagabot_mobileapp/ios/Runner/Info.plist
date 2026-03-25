@@ -45,5 +45,13 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs camera access to take selfies for account verification</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs photo library access to upload ID photos</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs location access to automatically fill your current address when reporting</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>This app needs location access to automatically fill your current address when reporting</string>
 </dict>
 </plist>
