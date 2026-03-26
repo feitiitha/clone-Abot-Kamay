@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'admin-settings.dart';
+import 'admin-logs_monitoring.dart';
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 class DC {
@@ -107,8 +109,10 @@ class ContentManagementBody extends StatefulWidget {
 class _ContentManagementBodyState extends State<ContentManagementBody> {
   final _searchCtrl = TextEditingController();
   String _searchQuery = '';
-  final String _sortField = 'id';
-  final bool _sortAsc = true;
+  String? _filterStatus;
+  String? _filterType;
+  String _sortField = 'id';
+  bool _sortAsc = true;
 
   @override
   void dispose() {
@@ -119,19 +123,76 @@ class _ContentManagementBodyState extends State<ContentManagementBody> {
   List<ContentRecord> get _displayed {
     var list = _masterContent.where((r) {
       final q = _searchQuery.toLowerCase();
-      return q.isEmpty ||
+      final ms = q.isEmpty ||
           r.id.toLowerCase().contains(q) ||
           r.title.toLowerCase().contains(q) ||
-          r.author.toLowerCase().contains(q);
+          r.author.toLowerCase().contains(q) ||
+          r.type.toLowerCase().contains(q);
+      final fs = _filterStatus == null || r.status == _filterStatus;
+      final ft = _filterType == null || r.type == _filterType;
+      return ms && fs && ft;
     }).toList();
+
     list.sort((a, b) {
-      final cmp = _sortField == 'id'
-          ? a.id.compareTo(b.id)
-          : a.id.compareTo(b.id);
+      dynamic valA, valB;
+      if (_sortField == 'author') {
+        valA = a.author.toLowerCase();
+        valB = b.author.toLowerCase();
+      } else if (_sortField == 'title') {
+        valA = a.title.toLowerCase();
+        valB = b.title.toLowerCase();
+      } else {
+        valA = a.id.toLowerCase();
+        valB = b.id.toLowerCase();
+      }
+      final cmp = valA.compareTo(valB);
       return _sortAsc ? cmp : -cmp;
     });
     return list;
   }
+
+  void _openFilter() => showModalBottomSheet(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (_) => _FilterSheet(
+          currentStatus: _filterStatus,
+          currentType: _filterType,
+          onApply: (s, t) {
+            setState(() {
+              _filterStatus = s;
+              _filterType = t;
+            });
+            Navigator.pop(context);
+          },
+          onClear: () {
+            setState(() {
+              _filterStatus = null;
+              _filterType = null;
+            });
+            Navigator.pop(context);
+          },
+        ),
+      );
+
+  void _openSort() => showModalBottomSheet(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (_) => _SortSheet(
+          currentField: _sortField,
+          ascending: _sortAsc,
+          onApply: (f, a) {
+            setState(() {
+              _sortField = f;
+              _sortAsc = a;
+            });
+            Navigator.pop(context);
+          },
+        ),
+      );
 
   void _openView(ContentRecord r) => showDialog(
     context: context,
@@ -160,6 +221,13 @@ class _ContentManagementBodyState extends State<ContentManagementBody> {
             ),
           );
         });
+        addSystemLog(
+          'Super Admin',
+          'Admin',
+          'Created Content',
+          'ARTT-${(_masterContent.length).toString().padLeft(3, '0')}',
+          'Created a new $type content: $title',
+        );
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -213,6 +281,13 @@ class _ContentManagementBodyState extends State<ContentManagementBody> {
           r.status = status;
           r.content = contentDesc;
         });
+        addSystemLog(
+          'Super Admin',
+          'Admin',
+          'Updated Content',
+          r.id,
+          'Updated details for ${r.id} ($status)',
+        );
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -270,56 +345,7 @@ class _ContentManagementBodyState extends State<ContentManagementBody> {
                   ),
                 ],
               ),
-              Row(
-                children: [
-                  _CircleIconBtn(
-                    icon: Icons.notifications_none_rounded,
-                    onTap: () {},
-                  ),
-                  const SizedBox(width: 14),
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: const Color(0xFFF1656A),
-                    child: const Icon(
-                      Icons.person,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Stella Santuyo',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: DC.primaryDark,
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.shield_outlined,
-                            size: 11,
-                            color: DC.textSoft,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Superadmin',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 12,
-                              color: DC.textSoft,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+              const TopProfileMenu(),
             ],
           ),
           const SizedBox(height: 28),
@@ -363,7 +389,7 @@ class _ContentManagementBodyState extends State<ContentManagementBody> {
                               color: DC.primaryDark,
                             ),
                             decoration: InputDecoration(
-                              hintText: 'Search by email or UID',
+                              hintText: 'Search by record ID, title, author...',
                               hintStyle: GoogleFonts.plusJakartaSans(
                                 fontSize: 13.5,
                                 color: DC.textSoft,
@@ -382,7 +408,7 @@ class _ContentManagementBodyState extends State<ContentManagementBody> {
                               _searchCtrl.clear();
                               setState(() => _searchQuery = '');
                             },
-                            child: Icon(
+                            child: const Icon(
                               Icons.close_rounded,
                               size: 16,
                               color: DC.textSoft,
@@ -393,18 +419,38 @@ class _ContentManagementBodyState extends State<ContentManagementBody> {
                   ),
                 ),
                 const SizedBox(width: 12),
+                if (_filterStatus != null || _filterType != null)
+                  Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: DC.primary.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      [
+                        if (_filterStatus != null) _filterStatus!,
+                        if (_filterType != null) _filterType!,
+                      ].join(' · '),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11.5,
+                        color: DC.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
                 _BarChipBtn(
                   icon: Icons.filter_list_rounded,
                   label: 'Filter',
-                  active: false,
-                  onTap: () {},
+                  active: _filterStatus != null || _filterType != null,
+                  onTap: _openFilter,
                 ),
                 const SizedBox(width: 10),
                 _BarChipBtn(
-                  icon: Icons.swap_vert_rounded,
+                  icon: Icons.sort_rounded,
                   label: 'Sort',
-                  active: false,
-                  onTap: () {},
+                  active: _sortField != 'id' || !_sortAsc,
+                  onTap: _openSort,
                 ),
                 const SizedBox(width: 12),
                 ElevatedButton.icon(
@@ -1744,4 +1790,293 @@ class _TableRowState extends State<_TableRow> {
       ),
     );
   }
+}
+class _FilterSheet extends StatefulWidget {
+  final String? currentStatus;
+  final String? currentType;
+  final void Function(String?, String?) onApply;
+  final VoidCallback onClear;
+  const _FilterSheet({
+    required this.currentStatus,
+    required this.currentType,
+    required this.onApply,
+    required this.onClear,
+  });
+  @override
+  State<_FilterSheet> createState() => _FilterSheetState();
+}
+
+class _FilterSheetState extends State<_FilterSheet> {
+  String? _status;
+  String? _type;
+  @override
+  void initState() {
+    super.initState();
+    _status = widget.currentStatus;
+    _type = widget.currentType;
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Filter Content',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: DC.primaryDark,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Status',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: DC.textMid,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              children: ['Published', 'Draft']
+                  .map(
+                    (s) => _ToggleChip(
+                      label: s,
+                      selected: _status == s,
+                      onTap: () => setState(() => _status = _status == s ? null : s),
+                    ),
+                  )
+                  .toList(),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              'Type',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: DC.textMid,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              children: ['Article', 'Notice', 'Carousel']
+                  .map(
+                    (t) => _ToggleChip(
+                      label: t,
+                      selected: _type == t,
+                      onTap: () => setState(() => _type = _type == t ? null : t),
+                    ),
+                  )
+                  .toList(),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: widget.onClear,
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: DC.border),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(50),
+                      ),
+                    ),
+                    child: Text(
+                      'Clear All',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: DC.textMid,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => widget.onApply(_status, _type),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: DC.primary,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(50),
+                      ),
+                    ),
+                    child: Text(
+                      'Apply',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+}
+
+class _SortSheet extends StatefulWidget {
+  final String currentField;
+  final bool ascending;
+  final void Function(String, bool) onApply;
+  const _SortSheet({
+    required this.currentField,
+    required this.ascending,
+    required this.onApply,
+  });
+  @override
+  State<_SortSheet> createState() => _SortSheetState();
+}
+
+class _SortSheetState extends State<_SortSheet> {
+  late String _field;
+  late bool _asc;
+  @override
+  void initState() {
+    super.initState();
+    _field = widget.currentField;
+    _asc = widget.ascending;
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Sort Records',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: DC.primaryDark,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Sort by',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: DC.textMid,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              children: [
+                _ToggleChip(
+                  label: 'Content ID',
+                  selected: _field == 'id',
+                  onTap: () => setState(() => _field = 'id'),
+                ),
+                _ToggleChip(
+                  label: 'Author',
+                  selected: _field == 'author',
+                  onTap: () => setState(() => _field = 'author'),
+                ),
+                _ToggleChip(
+                  label: 'Title',
+                  selected: _field == 'title',
+                  onTap: () => setState(() => _field = 'title'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Text(
+              'Order',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: DC.textMid,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              children: [
+                _ToggleChip(
+                  label: 'Ascending',
+                  selected: _asc,
+                  onTap: () => setState(() => _asc = true),
+                ),
+                _ToggleChip(
+                  label: 'Descending',
+                  selected: !_asc,
+                  onTap: () => setState(() => _asc = false),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => widget.onApply(_field, _asc),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: DC.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(50),
+                  ),
+                ),
+                child: Text(
+                  'Apply Sort',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
+class _ToggleChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _ToggleChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? DC.primary : Colors.white,
+            border: Border.all(color: selected ? DC.primary : DC.border),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: selected ? Colors.white : DC.textMid,
+            ),
+          ),
+        ),
+      );
 }

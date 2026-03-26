@@ -18,7 +18,7 @@ class _MPINScreenState extends State<MPINScreen> {
   );
   final List<FocusNode> _focusNodes = List.generate(4, (index) => FocusNode());
   final Color strokeColor = const Color(0xFFA29696);
-
+  
   // 1. Idinagdag ang loading state
   bool _isLoading = false;
 
@@ -33,25 +33,26 @@ class _MPINScreenState extends State<MPINScreen> {
     super.dispose();
   }
 
-  // 2. Updated: Aligned sa Supabase Database Table
+  // 2. Updated: Aligned sa Supabase User Metadata
   Future<void> _verifyPin() async {
     String enteredPin = _controllers.map((e) => e.text).join();
 
     if (enteredPin.length == 4) {
-      if (mounted) setState(() => _isLoading = true);
+      setState(() => _isLoading = true);
 
       try {
+        // Kunin ang kasalukuyang user na naka-login
         final user = Supabase.instance.client.auth.currentUser;
-
-        if (user == null) {
-          throw "No user logged in. Please login again.";
+        
+        if (user == null || user.email == null) {
+          throw "User not logged in or email not available.";
         }
 
         // Fetch MPIN data directly from the 'users' table
         final response = await Supabase.instance.client
             .from('users')
             .select('mpin')
-            .eq('user_id', user.id)
+            .eq('email_address', user.email!)
             .maybeSingle();
 
         if (response == null) {
@@ -63,48 +64,31 @@ class _MPINScreenState extends State<MPINScreen> {
         if (int.tryParse(enteredPin) == int.tryParse(storedMpin ?? '')) {
           // SUCCESS: Tugma ang PIN
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Login Successfully'),
-                backgroundColor: Colors.green,
-                duration: Duration(seconds: 1),
-              ),
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => const DSWDMainPage()),
+              (route) => false,
             );
-
-            // Wait briefly for the snackbar
-            await Future.delayed(const Duration(milliseconds: 500));
-
-            if (mounted) {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => const DSWDMainPage()),
-                (route) => false,
-              );
-            }
           }
         } else {
           // FAIL: Hindi tugma ang PIN
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Incorrect MPIN. Please try again.'),
-                backgroundColor: Colors.red,
-              ),
-            );
-
-            // Clear inputs specifically on error
-            for (var controller in _controllers) {
-              controller.clear();
-            }
-            _focusNodes[0].requestFocus();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Incorrect MPIN. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          
+          // Linisin ang mga boxes para sa bagong attempt
+          for (var controller in _controllers) {
+            controller.clear();
           }
+          _focusNodes[0].requestFocus();
         }
       } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: ${e.toString()}"), backgroundColor: Colors.red),
+        );
       } finally {
         if (mounted) setState(() => _isLoading = false);
       }
@@ -162,10 +146,7 @@ class _MPINScreenState extends State<MPINScreen> {
                       const SizedBox(height: 12),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: List.generate(
-                          4,
-                          (index) => _buildPinBox(index),
-                        ),
+                        children: List.generate(4, (index) => _buildPinBox(index)),
                       ),
                     ],
                   ),
@@ -173,16 +154,12 @@ class _MPINScreenState extends State<MPINScreen> {
 
                 const SizedBox(height: 32),
                 TextButton(
-                  onPressed: _isLoading
-                      ? null
-                      : () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const ForgotMpinPage(),
-                            ),
-                          );
-                        },
+                  onPressed: _isLoading ? null : () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const ForgotMpinPage()),
+                    );
+                  },
                   child: const Text(
                     "Forgot MPIN code?",
                     style: TextStyle(
@@ -194,7 +171,7 @@ class _MPINScreenState extends State<MPINScreen> {
               ],
             ),
           ),
-
+          
           // Loading Overlay
           if (_isLoading)
             Container(
@@ -229,7 +206,7 @@ class _MPINScreenState extends State<MPINScreen> {
         textAlign: TextAlign.center,
         keyboardType: TextInputType.number,
         obscureText: true,
-        obscuringCharacter: '●',
+        obscuringCharacter: '●', 
         inputFormatters: [
           FilteringTextInputFormatter.digitsOnly,
           LengthLimitingTextInputFormatter(1),
@@ -237,7 +214,7 @@ class _MPINScreenState extends State<MPINScreen> {
         style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
         decoration: InputDecoration(
           counterText: "",
-          contentPadding: EdgeInsets.zero,
+          contentPadding: EdgeInsets.zero, 
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide(color: strokeColor),

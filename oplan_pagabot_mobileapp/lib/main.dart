@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -13,11 +14,13 @@ void main() async {
   await Supabase.initialize(
     url: 'https://eopmbswmieuolygnadmb.supabase.co',
     anonKey: 'sb_publishable_tXKp_SyZjryYHGFqJO3_Fg_xDfU549N',
-  
   );
 
   runApp(
-    const MaterialApp(debugShowCheckedModeBanner: false, home: LoginPage()),
+    const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: LoginPage(),
+    ),
   );
 }
 
@@ -51,8 +54,7 @@ class _LoginPageState extends State<LoginPage> {
       });
 
       try {
-        // 1. Authentication via Supabase (auth.users)
-        // This checks the secure password set during Signup
+        // Authentication via Supabase
         final response = await Supabase.instance.client.auth.signInWithPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
@@ -67,7 +69,7 @@ class _LoginPageState extends State<LoginPage> {
           final userProfile = await Supabase.instance.client
               .from('users')
               .select()
-              .eq('user_id', user.id)
+              .eq('email_address', user.email!)
               .maybeSingle();
 
           if (userProfile == null) {
@@ -87,25 +89,19 @@ class _LoginPageState extends State<LoginPage> {
         }
       } on AuthException catch (error) {
         // Error handling para sa maling credentials o server issues
-        String message = error.message;
-        if (message.contains("Invalid login credentials") &&
-            message.contains("Email not confirmed")) {
-          // Help the user understand they might need to verify email
-          message = "Please verify your email address before logging in.";
-        } else if (message.contains("Invalid login credentials")) {
-          message = "Invalid email or password. Please check your inputs.";
-        }
-
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
+            SnackBar(
+              content: Text(error.message),
+              backgroundColor: Colors.redAccent,
+            ),
           );
         }
       } catch (error) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error: $error'),
+            const SnackBar(
+              content: Text('An unexpected error occurred. Please try again.'),
               backgroundColor: Colors.redAccent,
             ),
           );

@@ -12,16 +12,83 @@ class AdminLoginPage extends StatefulWidget {
 
 class _AdminLoginPageState extends State<AdminLoginPage> {
   // ── Form State ───────────────────────────────────────────────────────────────
+  String _username = '';
   String _password = '';
   bool _obscureText = true;
   bool _rememberMe = false;
 
-  // ── Password Validation ──────────────────────────────────────────────────────
-  // FIX 3: Collapsed into one combined flag — all 3 rules must pass together.
-  bool get _allRulesMet =>
-      _password.length >= 8 &&
-      _password.contains(RegExp(r'[A-Z]')) &&
-      _password.contains(RegExp(r'[0-9!@#$%^&*(),.?":{}|<>]'));
+  // ── Lockout State ────────────────────────────────────────────────────────────
+  int _attempts = 0;
+  DateTime? _lockoutUntil;
+  bool _requiresCaptcha = false;
+  bool _captchaSolved = false;
+  bool _isSuspended = false;
+
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: GoogleFonts.plusJakartaSans(color: Colors.white)),
+        backgroundColor: const Color(0xFFDC2626),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _handleLogin() {
+    if (_isSuspended) {
+      _showError('Permanent account suspension until manually unlocked by another super-admin.');
+      return;
+    }
+    if (_lockoutUntil != null) {
+      final now = DateTime.now();
+      if (now.isBefore(_lockoutUntil!)) {
+        final remaining = _lockoutUntil!.difference(now).inSeconds;
+        _showError('Account locked out for $remaining more seconds.');
+        return;
+      } else {
+        _lockoutUntil = null;
+      }
+    }
+    if (_requiresCaptcha && !_captchaSolved) {
+      _showError('Please complete the CAPTCHA requirement before logging in.');
+      return;
+    }
+
+    // Dummy validation to trigger lockout
+    if (_username != "superadmin" || _password != "admin123") {
+      setState(() {
+        _attempts++;
+        if (_attempts >= 10) {
+          _isSuspended = true;
+          _showError('Permanent account suspension until manually unlocked by another super-admin.');
+        } else if (_attempts >= 5) {
+          _lockoutUntil = DateTime.now().add(const Duration(minutes: 15));
+          _showError('5 Attempts reached: 15-minute lockout applied. Email notification sent to admin.');
+        } else if (_attempts >= 3) {
+          _lockoutUntil = DateTime.now().add(const Duration(minutes: 1));
+          _requiresCaptcha = true;
+          _captchaSolved = false;
+          _showError('3 Attempts reached: 1-minute lockout. CAPTCHA required for next login.');
+        } else {
+          _showError('Invalid login. Attempt $_attempts.');
+        }
+      });
+      return;
+    }
+
+    // Success reset
+    _attempts = 0;
+    _requiresCaptcha = false;
+    _captchaSolved = false;
+    
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AdminDashboardHomepage(),
+      ),
+    );
+  }
+
 
   // ── Carousel State ───────────────────────────────────────────────────────────
   final PageController _pageController = PageController();
@@ -161,7 +228,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
           Image.asset(
             'assets/images/main-logo.png',
             height: 38,
-            errorBuilder: (_, _, _) => Text(
+            errorBuilder: (_, __, ___) => Text(
               'DSWD',
               style: GoogleFonts.plusJakartaSans(
                 fontWeight: FontWeight.w900,
@@ -192,7 +259,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                           slide['image']!,
                           width: double.infinity,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => Container(
+                          errorBuilder: (_, __, ___) => Container(
                             decoration: BoxDecoration(
                               color: const Color(0xFFEEF0FF),
                               borderRadius: BorderRadius.circular(14),
@@ -325,6 +392,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                 hint: 'Enter Username',
                 iconPath: 'assets/icon/mail.png',
                 fallbackIcon: Icons.mail_outline_rounded,
+                onChanged: (val) => setState(() => _username = val),
               ),
               const SizedBox(height: 20),
 
@@ -347,7 +415,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                         alignment: Alignment.topCenter,
                         child: Padding(
                           padding: const EdgeInsets.only(top: 10),
-                          child: _PasswordHintRow(allMet: _allRulesMet),
+                          child: _PasswordHintRow(password: _password),
                         ),
                       )
                     : const SizedBox.shrink(),
@@ -410,19 +478,51 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
               ),
               const SizedBox(height: 28),
 
+              // ── CAPTCHA Display (Dynamic) ──
+              if (_requiresCaptcha) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Checkbox(
+                            value: _captchaSolved,
+                            onChanged: (v) {
+                              setState(() => _captchaSolved = v ?? false);
+                            },
+                            activeColor: const Color(0xFF15803D),
+                          ),
+                          Text(
+                            "I'm not a robot",
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: DC.primaryDark,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Icon(Icons.security, color: Colors.blue[800], size: 28),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+
               // ── Login Button ──
               SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AdminDashboardHomepage(),
-                      ),
-                    );
-                  },
+                  onPressed: _handleLogin,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF283891),
                     foregroundColor: Colors.white,
@@ -477,7 +577,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
               width: 18,
               height: 18,
               color: Colors.grey[500],
-              errorBuilder: (_, _, _) =>
+              errorBuilder: (_, __, ___) =>
                   Icon(fallbackIcon, size: 18, color: Colors.grey[500]),
             ),
           ),
@@ -523,14 +623,24 @@ class _FieldLabel extends StatelessWidget {
 // Shows ONE compact row that says "Password requirements not met" or "✓ Looks good!"
 // instead of listing 3 separate validation rows while typing.
 class _PasswordHintRow extends StatelessWidget {
-  final bool allMet;
-  const _PasswordHintRow({required this.allMet});
+  final String password;
+  const _PasswordHintRow({required this.password});
 
   @override
   Widget build(BuildContext context) {
+    if (password.isEmpty) return const SizedBox.shrink();
+
+    final reqLen = password.length >= 8;
+    final reqUpper = password.contains(RegExp(r'[A-Z]'));
+    final reqLower = password.contains(RegExp(r'[a-z]'));
+    final reqNum = password.contains(RegExp(r'[0-9]'));
+    final reqSpecial = password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
+
+    final allMet = reqLen && reqUpper && reqLower && reqNum && reqSpecial;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: allMet
             ? const Color(0xFFEAFBF0) // soft green bg
@@ -544,24 +654,29 @@ class _PasswordHintRow extends StatelessWidget {
         ),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            allMet ? Icons.check_circle_rounded : Icons.info_outline_rounded,
-            size: 15,
-            color: allMet ? const Color(0xFF1A7A48) : const Color(0xFFBF4040),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(
+              allMet ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+              size: 15,
+              color: allMet ? const Color(0xFF1A7A48) : const Color(0xFFBF4040),
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               allMet
                   ? 'Password looks good!'
-                  : 'Must be 8+ characters, include a capital letter & a number or special character.',
+                  : 'Must be 8+ characters, include a capital & lowercase letter, a number, and a special character.',
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w500,
                 color: allMet
                     ? const Color(0xFF1A7A48)
                     : const Color(0xFFBF4040),
+                height: 1.4,
               ),
             ),
           ),
